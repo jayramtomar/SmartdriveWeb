@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Login</title>
+
+    <!-- Bootstrap -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="style.css"  rel="stylesheet" type="text/css">
+	<style>
+
+</style>
+ </head>    
+<body>
+
+<div class="container-fluid bgi">
+<div class="row">
+<div class="col-md-4 col-sm-4 col-xs-12"></div>    
+<div class="col-md-4 col-sm-4 col-xs-12">
+    <form class="login-container">
+        <h1 class="header"><strong>Login</strong></h1>
+        <div class="form-group has-success">
+        <label for="user" class="header">E-mail</label>
+        <input class="form-control" id="email" placeholder="Enter E-mail ">
+        </div>
+        <div class="form-group has-success">
+        <label for="paswd" class="header">Password</label>
+        <input type="password" class="form-control" id="paswd" placeholder="Enter Password ">
+        </div>
+        <div class="checbox">
+        <label class="header"><input type="checkbox" id="remember" value="Remember"> Remember me</label>    
+        </div>
+    <button class="btn btn-info form-control" onclick="login()">Login</button>    
+    </form>    
+</div>
+<div class="col-md-4 col-sm-4 col-xs-12"></div>   
+</div>    
+</div>        
+
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+ <!-- Include all compiled plugins (below), or include individual files as needed -->
+ <script src="js/bootstrap.min.js"></script>
+ 
+<script src="https://www.gstatic.com/firebasejs/4.12.0/firebase.js"></script>
+<script>
+  // Initialize Firebase
+  var config = {
+    apiKey: "AIzaSyDc2uMthc3QrS_pkx7nW8kN8B7MMkLTamQ",
+    authDomain: "tomar-c6080.firebaseapp.com",
+    databaseURL: "https://tomar-c6080.firebaseio.com",
+    projectId: "tomar-c6080",
+    storageBucket: "tomar-c6080.appspot.com",
+    messagingSenderId: "719607446448"
+  };
+  firebase.initializeApp(config);
+</script>
+<script src="login.js"></script>
+</body>
+</html>     

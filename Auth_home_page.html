@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+	<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+
+<!-- jQuery library -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+<!-- Popper JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+
+<!-- Latest compiled JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+    <style>
+      #floating-panel {
+        position: absolute;
+        top: 10px;
+        left: 25%;
+        z-index: 5;
+        background-color: #fff;
+        padding: 5px;
+        border: 1px solid #999;
+        text-align: center;
+        font-family: 'Roboto','sans-serif';
+        line-height: 30px;
+        padding-left: 10px;
+      }
+    </style>
+  </head>
+  <body>
+  <div class="container-fluid">
+	<div class="row">
+    <div id="floating-panel">
+    <b>Mode of Travel: </b>
+    <select id="mode">
+      <option value="DRIVING">Driving</option>
+      <option value="WALKING">Walking</option>
+      <option value="BICYCLING">Bicycling</option>
+      <option value="TRANSIT">Transit</option>
+    </select>
+    </div>
+    <div id="map" style="width:100%;height:400px;background:yellow"></div>
+    </div>
+	<div class="row">
+	<table class="table table-hover table-bordered table-stripped">
+    <thead>
+      <tr>
+        <th>Query Id</th>
+        <th>Query description</th>
+        <th>Level</th>
+		<th>Category</th>
+		<th>Location</th>
+		<th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>High breaker</td>
+        <td>5</td>
+		<td>4</td>
+		<td>Agra,uttar pradesh</td>
+		<td>Solved</td>
+      </tr>
+      <tr>
+        <td>1</td>
+        <td>Unexpected Entry to highway</td>
+        <td>3</td>
+		<td>5</td>
+		<td>Palwal,haryana</td>
+		<td>Unsolved</td>
+		
+      </tr>
+      <tr>
+        <td>1</td>
+        <td>blind mode</td>
+        <td>2</td>
+		<td>3</td>
+		<td>Allahabad,Uttar Pradesh</td>
+		<td>Solved</td>
+      </tr>
+    </tbody>
+  </table>
+	</div>
+	</div>
+	<script>
+      function initMap() {
+        var directionsDisplay = new google.maps.DirectionsRenderer;
+        var directionsService = new google.maps.DirectionsService;
+        var map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 14,
+          center: {lat: 25.360978, lng: 82.202155}
+        });
+        directionsDisplay.setMap(map);
+
+        calculateAndDisplayRoute(directionsService, directionsDisplay);
+        document.getElementById('mode').addEventListener('change', function() {
+          calculateAndDisplayRoute(directionsService, directionsDisplay);
+        });
+      }
+      function calculateAndDisplayRoute(directionsService, directionsDisplay) {
+        var selectedMode = document.getElementById('mode').value;
+        directionsService.route({
+          origin: {lat: 28.571796, lng: 77.258630},  // Haight.
+          destination: {lat: 23.193425, lng: 88.012948},  // Ocean Beach.
+          // Note that Javascript allows us to access the constant
+          // using square brackets and a string value as its
+          // "property."
+          travelMode: google.maps.TravelMode[selectedMode]
+        }, function(response, status) {
+          if (status == 'OK') {
+            directionsDisplay.setDirections(response);
+          } else {
+            window.alert('Directions request failed due to ' + status);
+          }
+        });
+      }
+    </script>
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDQXr8YHepJSEY0X1OPqOTca99WI_vm2-I&callback=initMap">
+    </script>
+  </body>
+</html>

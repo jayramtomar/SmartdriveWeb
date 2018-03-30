@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+  <style>
+		.table{ 
+		background: url('Images/table-background.jpg') no-repeat;
+        width: 100%;
+    
+    	background-position: center;
+	background-size: cover;
+	}
+	.th:hover {
+    text-overflow: inherit;
+    overflow: visible;
+	width:50px;
+}
+body{
+	background: url('Images/tableOuterBackground.jpg') no-repeat;
+    width: 100%;
+    height: 100vh;
+    	background-position: center;
+	background-size: cover;
+}
+	.panel-heading{
+	color:white;
+	}
+	.thead-light{
+	  background-color:cyan	;
+	}
+  </style>
+</head>
+<body>
+<br>
+
+<div class="container">
+	    <div class="panel-heading">
+			<h2>Highway Information</h2><br>
+		</div>
+	<input class="form-control" id="myInput" type="text" placeholder="Search.."><br>
+		<table class="table table-fixed table-hover table">
+			<thead class="thead-light">
+				<tr>
+					<td><strong>Name</td>
+					<td><strong>Authority name</td>
+					<td><strong>Contact Number</td>
+					<td><strong>Contact E-mail</td>	
+					<td><strong>length</td>
+				</tr>
+			</thead>
+			<tbody id="highway">
+				<tr>
+					<td>NH19</td>
+					<td>NHAI</td>
+					<td>01125074200</td>
+					<td>memberadmin@nhai.org</td>
+					<td>1435km</td>
+				</tr>
+				<tr>
+					<td>NH48</td>
+					<td>Haryana Government authority</td>
+					<td>0172-2570121</td>
+					<td>secytransort@hry.nic.in</td>
+					<td>1,428km</td>
+				</tr>
+				<tr>
+					<td>NH44</td>
+					<td>Bengaluru Development Authority</td>
+					<td>+91 80255501227</td>
+					<td>bdabangalore@gmail.com</td>
+					<td>2,369km</td>
+				</tr>
+				<tr>
+					<td>NH15</td>
+					<td>NHAI</td>
+					<td>01125074200</td>
+					<td>memberadmin@nhai.org</td>
+					<td>1,526km</td>
+				</tr>
+				
+			</tbody>
+			
+		</table>
+</div>
+<script>
+$(document).ready(function(){
+  $("#myInput").on("keyup", function() {
+    var value = $(this).val().toLowerCase();
+    $("#highway tr").filter(function() {
+      $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+    });
+  });
+});
+</script>
+
+
+</body>
+</html>

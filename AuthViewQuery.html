@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+  <style>
+	.table{ 
+		background: url('Images/table-background.jpg') no-repeat;
+        width: 100%;
+    
+    	background-position: center;
+	background-size: cover;
+	}
+	.th:hover {
+    text-overflow: inherit;
+    overflow: visible;
+	width:50px;
+}
+body{
+	background: url('Images/tableOuterBackground.jpg') no-repeat;
+    width: 100%;
+    height: 100vh;
+    	background-position: center;
+	background-size: cover;
+}
+  </style>
+</head>
+<body>
+
+<div class="container">
+	
+        <div class="panel-heading">
+			<h2>Queries From User</h2>
+		</div>
+		<input class="form-control" id="myInput" type="text" placeholder="Search.."><br>
+		
+  <table class="table table-fixed table-hover table-bordered table">
+    <thead class="thead-light">
+      <tr>
+        <th>Id</th>
+        <th>Email</th>
+        <th>Highway no.</th>
+		<th>Category</th>
+		<th>Level</th>
+		<th>Description</th>
+		<th>Location</th>
+      </tr>
+    </thead>
+    <tbody id="myTable tr">
+      <tr>
+        <td>1234</td>
+        <td>jrm.tomar@gmail.com</td>
+        <td>NH-2</td>
+		<td>3</td>
+		<td>5</td>
+		<td>unexpected breaker</td>
+		<td>Palwal Haryana</td>
+      </tr>
+	<tr>
+        <td>1235</td>
+        <td>abc@gmail.com</td>
+        <td>NH-3</td>
+		<td>5</td>
+		<td>3</td>
+		<td>Blind mode</td>
+		<td>Agra uttar pradesh</td>
+      </tr>
+	  <tr>
+        <td>1236</td>
+        <td>xyz@gmail.com</td>
+        <td>NH-2</td>
+		<td>2</td>
+		<td>5</td>
+		<td>Road condition are bad</td>
+		<td>mathura up</td>
+      </tr>
+	  <tr>
+        <td>1237</td>
+        <td>jay@gmail.com</td>
+        <td>NH-3</td>
+		<td>4</td>
+		<td>4</td>
+		<td>No sign of u-turn</td>
+		<td>Agra up</td>
+      </tr>
+    </tbody>
+  </table>
+  
+</div>
+<script>
+$(document).ready(function(){
+  $("#myInput").on("keyup", function() {
+    var value = $(this).val().toLowerCase();
+    $("#myTable tr").filter(function() {
+      $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+    });
+  });
+});
+</script>
+
+
+</body>
+</html>

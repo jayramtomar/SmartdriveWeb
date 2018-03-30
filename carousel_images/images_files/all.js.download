@@ -1,0 +1,3529 @@
+var app = angular.module('exponent', ['ngSanitize']).run(function($rootScope){
+    $rootScope.goToUrl = function(url){
+        window.location = url; 
+    }
+});
+
+app.config(function ($provide) {
+    $provide.decorator('$browser', ['$delegate', function ($delegate) {
+        $delegate.onUrlChange = function () { };
+        $delegate.url = function () { return "" };
+        return $delegate;
+    }]);
+});
+(function (factory) {
+    'use strict';
+
+    // AMD
+    if (typeof define === 'function' && define.amd)
+    {
+        define(['jquery'], factory);
+    }
+    else
+        // browser globals
+    {
+        factory(jQuery);
+    }
+
+}(function ($) {
+
+
+    $('a[data-mailto-domain]').each(function(i, el) {
+        var mailto = "mailto:" + $(el).data('mailto-name').replace(/##/g, "'") + "@" + $(el).data('mailto-domain').replace(/##/g, "'");
+        $(el).attr('href', mailto);
+    });
+
+    $("span.spamproof_insert").replaceWith("@");
+    
+}));
+
+
+var SPMail = (function () {
+    /* Spam Mail prevention */
+    return {
+        SendEmail: function (address, domain) {
+            document.location.href = "mailto:" + address.replace(/##/g, "'") + "@" + domain.replace(/##/g, "'");
+        },
+
+        // replaces the specially crafted span with the @ sign
+        UpdateDisplayText: function () {
+            var matches = document.querySelectorAll("span.spamproof_insert");
+            for (var i = 0; i < matches.length; i++) {
+                var match = matches[i];
+                var content = document.createTextNode("@");
+                match.parentNode.replaceChild(content, match);
+            }
+        }
+    };
+})();
+
+document.onreadystatechange = function() {
+    if (document.readyState == "complete") {
+        SPMail.UpdateDisplayText();
+    }
+};
+
+app.controller('CareerProfessionalEmbed', function ($scope, $element) {
+    $scope.experience = $($element.find('.recent-experience'));
+    $scope.viewMoreBtn = $($element.find('.view-more a'));
+    $scope.viewMoreText = 'fa fa-plus';
+    $scope.isOpen = false;
+
+    $scope.toggleExperience = function() {
+        if(!$scope.isOpen) {
+            $scope.experience.slideDown(250);         
+            $scope.viewMoreText = 'fa fa-minus';
+            $scope.isOpen = true;
+        } else {
+            $scope.experience.slideUp(250);
+            $scope.viewMoreText = 'fa fa-plus';
+            $scope.isOpen = false;
+        }
+    };
+});
+
+app.controller('CareerUpcomingEvents', function ($scope, $http, $sce, $log, $element, $attrs, $window, $timeout) {
+    $scope.typeAheadItems = [];
+    $scope.typeAheadResults = [];
+    $scope.keyword = '';
+    $scope.schoolId = '';
+    $scope.upcomingEventList = [];
+    $scope.upcomingEventCount = 0;    
+    $scope.hideSearch = false;
+    $scope.isSearchActive = false;
+    $scope.isLoading = false;       
+    $scope.hideSearch = false;
+    var History = window.History;
+
+    $scope.init = function () {        
+        GetTypeAheadItems();        
+    };
+
+    $scope.TypeAhead = function () {
+        if ($scope.keyword.length > 2) {
+            PopulateTypeAhead();
+        } else {
+            $scope.isSearchActive = false;
+            $scope.typeAheadResults = [];
+        }
+    };
+
+    $scope.ClearTypeAhead = function () {
+        var isHovered = $('.type-ahead').is(":hover")
+        if (!isHovered) {
+            $scope.typeAheadResults = [];
+        }
+    };
+
+    $scope.ClearEventSearch = function () {
+        $scope.hideSearch = false;
+        $scope.typeAheadResults = [];
+        $scope.keyword = '';
+        $scope.schoolId = '';
+        GetEvents('');
+    };
+
+    $scope.SetInputValue = function (name, guid) {
+        $scope.keyword = name;
+        $scope.schoolId = guid;
+        $scope.isSearchActive = true;
+        $scope.typeAheadResults = [];
+        $scope.GetUpcomingEvents();
+    };
+
+    $scope.GetUpcomingEvents = function() {        
+        if($scope.isSearchActive) {
+            GetEvents($scope.schoolId);
+            $scope.hideSearch = true;
+        }
+    };
+
+    function GetEvents(schoolId) {
+        $scope.isLoading = true;
+        var url = BuildUrl(schoolId);
+        $http.get(url).success(function (response) {
+            $scope.upcomingEventCount = response.data.count;
+            $scope.upcomingEventList = response.data.list;
+            $scope.isLoading = false;
+        }).error(function (data, status, headers, config) {
+            console.log('GetUpcomingEvents error: ' + data);
+        });
+    }    
+
+    function GetTypeAheadItems() {
+      $http.get('/webapi/CareerApi/GetTypeAheadList').success(function (data) {
+            /*angular.forEach(data, function (item) {
+                $scope.typeAheadItems.push($sce.trustAsHtml(item));
+            });*/                  
+            $scope.typeAheadItems = data;
+      }).error(function (data, status, headers, config) {
+          console.log('GetTypeAhead error: ' + data);
+      });
+    }
+
+    function PopulateTypeAhead() {
+        $scope.typeAheadResults = [];
+        var list = $scope.typeAheadItems;
+
+        for (var i = 0; i < $scope.typeAheadItems.length; i++) {
+            var item = null;
+            if (list[i].name != null) {
+                var name = list[i].name.toLowerCase();
+
+                if (name.match('^' + $scope.keyword.toLowerCase() + '')) {     
+                    list[i].priority = 1;               
+                    item = JSON.parse(JSON.stringify(list[i]));                    
+                } else if (name.indexOf($scope.keyword.toLowerCase()) != -1) {
+                    list[i].priority = 0;
+                    item = JSON.parse(JSON.stringify(list[i]));
+                }                    
+
+                if (item != null) {
+                    //item.name = item.name.replace($scope.keyword.toLowerCase(), "<b>" + $scope.keyword.toLowerCase() + "</b>");
+                    $scope.typeAheadResults.push(item);
+                }
+            }
+        }
+        $scope.typeAheadResults.sort(SortByPriority);
+        $scope.typeAheadResults = $scope.typeAheadResults.slice(0, 5);        
+    }
+
+    function BuildUrl(schoolId) {
+      var url = '/webapi/CareerApi/GetUpcomingEvents';
+      if(!IsNullOrEmpty(schoolId)) {
+        url = url + '?schoolId=' + schoolId;
+      }
+      return url;
+    }
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }
+
+    function SortByPriority(a, b) {
+        if (a.priority > b.priority)
+            return 1;
+        else if (a.priority < b.priority)
+            return -1;
+
+        // Else sort by name
+        if (a.name < b.name) { 
+            return -1;
+        } else if (a.name > b.name) {
+            return 1
+        } else {
+            return 0;
+        }
+    }
+
+    $scope.init();
+});
+
+app.controller('CareerWhoWeAre', function ($scope, $rootScope, $http, $sce, $log, $element, $attrs, $window, $timeout) {
+    $scope.typeAheadItems = [];
+    $scope.typeAheadResults = [];
+    $scope.keyword = '';
+    $scope.schoolId = '';        
+    $scope.isSearchActive = false;    
+    var History = window.History;
+
+    $scope.init = function () {
+        GetTypeAheadItems();
+    };
+
+    $scope.TypeAhead = function ($event) {
+        if ($scope.keyword.length > 2) {
+            PopulateTypeAhead();            
+        } else {
+            $scope.isSearchActive = false;
+            $scope.typeAheadResults = [];
+        }
+    };
+
+    $scope.ClearTypeAhead = function () {
+        var isHovered = $('.type-ahead').is(":hover")
+        if (!isHovered) {
+            $scope.typeAheadResults = [];
+        }
+    };
+
+    $scope.SetInputValue = function (name, guid) {
+        $scope.keyword = name;
+        $scope.schoolId = guid;
+        $scope.isSearchActive = true;              
+        $scope.typeAheadResults = [];
+        $scope.GetFeaturedProfessionals();  
+    };
+
+    $scope.GetFeaturedProfessionals = function () {
+        if($scope.isSearchActive) {                    
+            $rootScope.goToUrl('/professionals/?schools=' + $scope.schoolId + '&schoolname=' + encodeURIComponent($scope.keyword));
+        }
+    };
+
+    function GetTypeAheadItems() {
+      $http.get('/webapi/CareerApi/GetTypeAheadList').success(function (data) {
+          $scope.typeAheadItems = data;
+      }).error(function (data, status, headers, config) {
+          console.log('GetTypeAhead error: ' + data);
+      });
+    }
+
+    function PopulateTypeAhead() {
+        $scope.typeAheadResults = [];
+        var list = $scope.typeAheadItems;
+
+        for (var i = 0; i < $scope.typeAheadItems.length; i++) {
+            var item = null;
+            if (list[i].name != null) {
+                var name = list[i].name.toLowerCase();
+
+                if(name.match('^' + $scope.keyword.toLowerCase() + '')) {     
+                    list[i].priority = 1;               
+                    item = JSON.parse(JSON.stringify(list[i]));                    
+                } else if (name.indexOf($scope.keyword.toLowerCase()) != -1) {
+                    list[i].priority = 0;
+                    item = JSON.parse(JSON.stringify(list[i]));
+                }                    
+
+                if (item != null) {
+                    //item.name = item.name.replace($scope.keyword.toLowerCase(), "<b>" + $scope.keyword.toLowerCase() + "</b>");
+                    $scope.typeAheadResults.push(item);
+                }
+            }
+        }        
+        $scope.typeAheadResults.sort(SortByPriority);        
+        $scope.typeAheadResults = $scope.typeAheadResults.slice(0, 5);        
+    }
+
+    function BuildUrl(schoolId) {
+        var url = '/webapi/CareerApi/GetFeaturedProfessionals';
+        if(!IsNullOrEmpty(schoolId)) {
+            url = url + '?schoolId=' + schoolId;
+        }
+        return url;
+    }
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }
+
+    function SortByPriority(a, b){
+        if (a.priority > b.priority)
+            return 1;
+        else if (a.priority < b.priority)
+            return -1;
+
+        // Else sort by name
+        if (a.name < b.name) { 
+            return -1;
+        } else if (a.name > b.name) {
+            return 1
+        } else {
+            return 0;
+        }
+    }
+
+    $scope.init();
+});
+
+app.controller('CareerDetail', function ($scope, $http, $sce, $log, $element, $attrs) {
+    $scope.init = function () {
+    	
+    };    
+
+    $scope.init();
+});
+
+app.controller('ContactLanding', function ($scope, $http, $sce, $log, $element, $attrs, queryStringService, $window) {
+	$scope.fullName = '';
+	$scope.emailFrom = '';
+	$scope.organization = '';
+	$scope.message = '';
+	$scope.captchaResponse = '';
+	$scope.emailTo = '';
+	$scope.success = false;
+	$scope.hasSubmitted = false;
+	$scope.queryString = '';
+	$scope.responseMsg = '';
+
+    $scope.init = function () {
+    	$scope.emailTo = $element.attr('data-email-to');
+    };    
+
+    $scope.submitContact = function () {
+        if($scope.hasSubmitted == false || $scope.success == false) {
+            $('body').animate({scrollTop: 0}, 600, function() {
+                BuildQueryString();
+                $http.get("/webapi/ContactApi/VerifyForm/"+ $scope.queryString).success(function (response) {
+                    $scope.success = response.data.success;                        
+                    $scope.responseMsg = $sce.trustAsHtml(response.data.message);
+                    grecaptcha.reset(recaptcha1);
+                    if($scope.success) {                        
+                        $http.post("/webapi/ContactApi/SendForm/" + $scope.queryString).success(function (response) {
+                            console.log('Form sent success');
+                        }).error(function (data, status, headers, config) {
+                            console.log('error: +' + status);
+                        });                
+                        CleanForm();
+                    }            
+                }).error(function (data, status, headers, config) {
+                    console.log('error: +' + status);
+                });
+                $scope.hasSubmitted = true;
+                return false; 
+            });
+        }     
+    };
+
+    function BuildQueryString() {
+        $scope.queryString = '';
+        if (!IsNullOrEmpty($scope.fullName)) {
+            $scope.queryString = queryStringService.addQueryString('fullName', $scope.fullName, $scope.queryString);
+        } else {
+        	$scope.queryString = queryStringService.removeQueryString('fullName', $scope.fullName, $scope.queryString);
+        }
+        if (!IsNullOrEmpty($scope.emailFrom)) {
+            $scope.queryString = queryStringService.addQueryString('emailFrom', $scope.emailFrom, $scope.queryString);
+        } else {
+        	$scope.queryString = queryStringService.removeQueryString('emailFrom', $scope.emailFrom, $scope.queryString);	
+        }
+        if (!IsNullOrEmpty($scope.organization)) {
+            $scope.queryString = queryStringService.addQueryString('organization', $scope.organization, $scope.queryString);
+        } else {
+        	$scope.queryString = queryStringService.removeQueryString('organization', $scope.organization, $scope.queryString);
+        }
+        if (!IsNullOrEmpty($scope.message)) {
+            $scope.queryString = queryStringService.addQueryString('message', $scope.message, $scope.queryString);
+        } else {
+        	$scope.queryString = queryStringService.removeQueryString('message', $scope.message, $scope.queryString);
+        }
+        if (!IsNullOrEmpty($scope.emailTo)) {
+            $scope.queryString = queryStringService.addQueryString('emailTo', $scope.emailTo, $scope.queryString);
+        } else {
+        	$scope.queryString = queryStringService.removeQueryString('emailTo', $scope.emailTo, $scope.queryString);
+        }
+        $scope.queryString = queryStringService.addQueryString('captchaResponse', grecaptcha.getResponse(recaptcha1), $scope.queryString);        
+    }
+
+    function CleanForm() {
+        $scope.fullName = "";
+        $scope.emailFrom = "";
+        $scope.organization = "";
+        $scope.message = "";        
+    }
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }
+
+    $scope.init();
+});
+
+app.controller("ExperiencePanel", function ($scope, $rootScope, $http, $sce, $log, $element, $attrs, $window, $timeout, queryStringService, filterService, historyStateService) {
+    $scope.serviceId = '';
+    $scope.whatWeDoId = '';
+    $scope.whatWeDoAbstract = '';
+    $scope.whatWeDoList = [];
+    $scope.whatWeDoRows = [];
+    $scope.experiences = [];
+    $scope.experienceRows = [];
+    $scope.pageNum = 0;
+    $scope.pageSize = 10;
+    $scope.count = 0;
+    $scope.skip = 0;
+    var experienceParam = 'experiencePageNum';
+    $scope.isLoading = false;
+    $scope.isInitial = true;
+    $expShowcase = $($element.find('.experience-showcase'));
+
+    $scope.isLoading = false;
+    var History = window.History;
+
+    $scope.init = function () {
+        $scope.serviceId = $element.attr('data-service-id');
+        GetFilteredWhatWeDo();
+        SetInitialExperience();
+    };
+
+    $scope.hasMore = function() {
+        return ($scope.pageNum + 1) * $scope.pageSize < $scope.count || $scope.isLoading;
+    };
+
+    $scope.LoadMore = function() {
+        $scope.pageNum++;
+        $scope.GetExperience($scope.whatWeDoId, true, '', true);
+    };
+
+    $scope.GetExperience = function (id, isActive, abstract, isLoadMore) {
+        if(isActive == true) {
+            if(id != $scope.whatWeDoId) {
+                $scope.whatWeDoId = id;
+                $scope.isInitial = true;
+                $scope.pageNum = 0;
+                $scope.skip = 0;
+            };
+            if(!$scope.isInitial && !isLoadMore && id == $scope.whatWeDoId) return;
+
+            $expShowcase.toggleClass('is-loading');
+            BuildQueryString();
+            $scope.isLoading = true;
+
+            setTimeout(function() {
+                $http.get('/webapi/ServicesApi/GetExperience' + $scope.queryString).success(function (response) {
+                    $scope.isInitial = false;
+                    if(!IsNullOrEmpty(abstract)) {
+                        $scope.whatWeDoAbstract = $sce.trustAsHtml(abstract);
+                    }
+                    $scope.count = response.data.count;
+
+                    angular.forEach(response.data.experiences, function (item) {
+                        angular.forEach($scope.sanitizeFields, function (fieldName) {
+                            item[fieldName] = $sce.trustAsHtml(item[fieldName]);
+                        });
+                    });
+
+                    if ($scope.pageNum > 0) {
+                        $scope.experiences = $scope.experiences.concat(response.data.experiences);
+                        $scope.skip = $scope.pageNum * $scope.pageSize;
+                    } else {
+                        ClearExperience();
+                        $scope.experiences = response.data.experiences;
+                    }
+                    FillExperienceRows();
+
+                    if($scope.pageNum == 0) {
+                        $('.flyout-content').animate({ scrollTop: $('.experience-panel').find('.experience-showcase').offset().top}, 500);
+                    }
+                    $expShowcase.toggleClass('is-loading');
+                    $scope.isLoading = false;
+
+                    // var updatedQueryString = queryStringService.updateQueryString(experienceParam, $scope.pageNum);
+                    // History.replaceState(buildState(), document.title, updatedQueryString);
+                }).error(function (data, status, headers, config) {
+                    console.log('error: ' + data);
+                });
+            }, 500);
+        }
+    }
+
+    function GetFilteredWhatWeDo() {
+        $scope.isLoading = true;
+        $http.get('/webapi/ServicesApi/FilteredWhatWeDo?serviceId=' + $scope.serviceId).success(function (response) {
+            $scope.isLoading = false;
+            var rs = _.filter(response.data.whatWeDo, function (obj) { return obj.isActive == true });
+            $scope.whatWeDoList = rs;
+            FillCapabilityRows();
+        }).error(function (data, status, headers, config) {
+            console.log('error: ' + data);
+        });
+    }
+
+    function SetInitialExperience() {
+        // if(queryStringService.getParameterByName(experienceParam)){
+        //     if(historyStateService.hasState()){
+        //         historyStateService.loadState($scope);
+        //         return;
+        //     }
+        // }
+        $http.get('/webapi/ServicesApi/GetExperience?serviceId=' + $scope.serviceId).success(function (response) {
+            angular.forEach(response.data.experiences, function (item) {
+                angular.forEach($scope.sanitizeFields, function (fieldName) {
+                    item[fieldName] = $sce.trustAsHtml(item[fieldName]);
+                });
+            });
+            $scope.count = response.data.count;
+            $scope.experiences = response.data.experiences;
+            FillExperienceRows();
+        }).error(function (data, status, headers, config) {
+            console.log('error: ' + data);
+        });
+    }
+
+    function FillCapabilityRows() {
+        var whatWeDoRow = [];
+        for(var i = 0; i < $scope.whatWeDoList.length; i++) {
+            whatWeDoRow.push($scope.whatWeDoList[i]);
+            if(whatWeDoRow.length % 2 === 0 || i === $scope.whatWeDoList.length-1) {
+                $scope.whatWeDoRows.push(whatWeDoRow);
+                whatWeDoRow = [];
+            }
+        }
+    }
+
+    function FillExperienceRows() {
+        var experienceRow = [];
+        for(var i = $scope.skip; i < $scope.experiences.length; i++) {
+            experienceRow.push($scope.experiences[i]);
+            if(experienceRow.length % 2 === 0 || i === $scope.experiences.length-1) {
+                $scope.experienceRows.push(experienceRow);
+                experienceRow = [];
+            }
+        }
+    }
+
+    function buildState(){
+        var stateObj = {
+            experienceRows: $scope.experienceRows,
+            whatWeDoRows: $scope.whatWeDoRows,
+            experiences: $scope.experiences,
+            whatWeDoList: $scope.whatWeDoList,
+            count: $scope.count,
+            queryString: $scope.queryString
+        };
+        return stateObj;
+    }
+    function BuildQueryString() {
+        $scope.queryString = '';
+        $scope.queryString = queryStringService.addQueryString('serviceId', $scope.serviceId, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('whatWeDoId', $scope.whatWeDoId, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('pageNum', $scope.pageNum, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('pageSize', $scope.pageSize, $scope.queryString);
+    }
+
+    function ClearExperience() {
+        $scope.experiences = [];
+        $scope.experienceRows = [];
+    }
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }
+
+    function StringToBoolean(item) {
+        if (item === undefined)
+            return false;
+        switch (item.toLowerCase()) {
+            case "true": case "yes": case "1": return true;
+            case "false": case "no": case "0": case null: return false;
+            default: false;
+        }
+    };
+
+    $scope.init();
+});
+
+app.controller("GoogleSiteSearch", function ($scope, $rootScope, $http, $element, $attrs, $window, $location, $sce, filterService, queryStringService) {
+    var baseUrl = $element.attr('data-url'),
+      queryString = $window.location.search;
+
+    $scope.pageNum = 0;
+    $scope.asOq = "";
+    $scope.searchApiKey = "";
+    $scope.searchEngineKey = "";
+    $scope.placeholderQuery = '';
+    $scope.filterSelected = "all";
+    $scope.showViewMore = false;
+    $scope.searchComplete = false;
+    $scope.totalResults = 0;
+    $scope.searchResults = [];
+    $scope.query = '';
+    var customSearchControl;
+    var History = window.History;
+
+    $scope.init = function () {
+        var pageSize = $element.attr('data-page-size');
+        $scope.pageSize = (pageSize > 10) ? 10 : pageSize;
+        $scope.searchApiKey = $element.attr('data-searchapikey');
+        $scope.searchEngineKey = $element.attr('data-searchenginekey');
+
+        if (window.location.search) {
+            var arr = queryStringService.getParametersByName('q');
+            if (arr.length > 0) {
+                $scope.query = decodeURI(arr[0]);
+            }
+            $scope.inputQuery = $scope.query;
+
+            if ($scope.query) {
+                doSearch();
+            }
+        }
+    };
+
+    $scope.clearInputQuery = function () {
+        $scope.inputQuery = '';
+    };
+
+    function doSearch() {
+        $('.no-results').hide();
+        $scope.filters = filterService.get();
+        $scope.inputQuery = $scope.query;
+        $('#search-results').empty();
+        var categoryFilter = [];
+
+        for (var i = 0; i < $scope.filters.length; i++) {
+            if ($scope.filters[i].queryName == 'as_oq') {
+                categoryFilter.push('site:' + 'exponent.com/' + $scope.filters[i].value + " ");
+            }
+        }
+
+        var currentFilter = '';
+
+        if (categoryFilter.length > 0) {
+            currentFilter = categoryFilter.join('*');
+        }
+
+        var apiParameters = {
+            key: $scope.searchApiKey,
+            cx: $scope.searchEngineKey,
+            q: $scope.query,
+            num: $scope.pageSize,
+            start: ($scope.pageNum * $scope.pageSize) + 1,
+            hq: currentFilter,
+            fields: 'items(title,htmlTitle,link,snippet),searchInformation(totalResults)'
+        };
+
+        var apiQueryString = $.param(apiParameters);
+
+        $http.get('https://www.googleapis.com/customsearch/v1?' + apiQueryString)
+          .then(function (response) {
+              $scope.searchComplete = true;
+              $scope.totalResults = parseInt(response.data.searchInformation.totalResults);
+
+              if ((($scope.pageNum + 1) * $scope.pageSize) < $scope.totalResults) {
+                  $scope.showViewMore = true;
+              } else {
+                  $scope.showViewMore = false;
+              }
+
+              $scope.searchResults = $scope.searchResults.concat(response.data.items);
+          });
+
+        History.replaceState(null, document.title, queryStringService.updateQueryString('q', $scope.query));
+        $scope.pageNum++;
+    }
+
+    $scope.search = function () {
+        $scope.filterSelected = "all";
+        filterService.clear();
+        $scope.searchComplete = false;
+        $scope.pageNum = 0;
+        $scope.totalResults = 0;
+        $scope.searchResults = [];
+        $scope.query = $scope.inputQuery;
+        $scope.showViewMore = false;
+        angular.element('#result-container').empty();
+        doSearch();
+    };
+
+    //logic to clear all filters and add fitler
+    $scope.clearAndAddFilter = function (filterText, filterValue, filterQueryName, filterLabel) {
+        $scope.filterSelected = filterText;
+        var filter = {
+            text: filterText,
+            value: filterValue,
+            queryName: filterQueryName
+        };
+        filterService.clear();
+        filterService.add(filter);
+        $scope.pageNum = 0;
+        $scope.searchResults = [];
+        $scope.showViewMore = false;
+        angular.element('#result-container').empty();
+        doSearch();
+    };
+
+    //logic for clear filter
+    $scope.clearFilters = function () {
+        $scope.filterSelected = "all";
+        filterService.clear();
+        $scope.pageNum = 0;
+        $scope.searchResults = [];
+        $scope.showViewMore = false;
+        angular.element('#result-container').empty();
+        doSearch();
+    };
+
+    $scope.addPage = function () {
+        doSearch();
+    };
+
+    $scope.goto = function (path) {
+        location.assign(path);
+    };
+
+    function StringToBoolean(item) {
+        if (item === undefined)
+            return false;
+        switch (item.toLowerCase()) {
+            case "true":
+            case "yes":
+            case "1":
+                return true;
+            case "false":
+            case "no":
+            case "0":
+            case null:
+                return false;
+            default:
+                false;
+        }
+    }
+
+    $scope.init();
+});
+app.controller("Header", function ($scope, $http, $element, queryStringService) {
+    $scope.searchTerm = '';
+
+    $scope.init = function () {
+
+    };
+
+    $scope.Search = function () {
+        if (IsNullOrEmpty($scope.searchTerm))
+            return;
+        else
+            window.location.href = "/site-search?q=" + encodeURIComponent($scope.searchTerm);
+    };
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }
+
+    $scope.init();
+});
+app.controller("HomePage", function ($scope, $http, $sce, $log, $element, $attrs, $window, $timeout) {
+	$scope.spotlightName = '';
+	$scope.spotlightTitle = '';
+    $scope.spotlightImage = '';
+    $scope.spotlightUrl = '';
+    $scope.spotlightLinks = $($element.find('.home-industry-spotlight .links .link'));
+    $scope.spotlightContainer = $($element.find('.home-industry-spotlight .links'));   
+    
+    $scope.features = $($element.find('.home-services-showcase'));    
+    $scope.featureItems = $($scope.features.find('.service'));
+    $scope.whatWeDoBtn = $($element.find('#WhatWeDoBtn'));
+
+    $scope.featuredInsights = $($element.find('.home-featured-insights'));
+    $scope.additionalItems = $($element.find('.home-featured-insights .featured-insight'));
+    $scope.additionalItemsBtn = $($element.find('#AdditionalItemsBtn'));
+
+    $scope.initialSize = 6;
+    $scope.pageSize = 3;
+    $scope.whatWeDoPageNum = 1;
+    $scope.additionalItemsPageNum = 1;    
+    var History = window.History;
+
+    $scope.hasMoreWhatWeDo = function() {
+        if($scope.featureItems.length > $scope.initialSize && $scope.whatWeDoPageNum > 1) {
+            return $scope.featureItems.length > ($scope.initialSize + ($scope.pageSize * $scope.whatWeDoPageNum));    
+        } else {
+            return true;
+        }        
+    };
+
+    $scope.hasMoreAdditionalItems = function() {        
+        return $scope.additionalItems.length > $scope.pageSize * $scope.additionalItemsPageNum;      
+    };
+
+    $scope.init = function () {
+        HideWhatWeDo();
+        SetRandomSpotlight();
+        HideAdditionalItems();        
+    };
+
+    $scope.SetActiveSpotlight = function (id) {
+        $scope.spotlightLinks.removeClass('active');
+        var activeSpotlight = $scope.spotlightContainer.find('#' + id);
+        $scope.spotlightName = $(activeSpotlight).attr('data-name');
+        $scope.spotlightTitle = $(activeSpotlight).attr('data-title');
+        $scope.spotlightImage = $(activeSpotlight).attr('data-image');
+        $scope.spotlightUrl = $(activeSpotlight).attr('data-url');
+        $(activeSpotlight).addClass('active');
+    };
+
+    function SetRandomSpotlight() {        
+        var length = $scope.spotlightLinks.length;
+        if(length > 0) {
+            var idx = Math.floor(Math.random() * (length));
+            var randomSpotlight = $scope.spotlightLinks.eq(idx);
+            $scope.SetActiveSpotlight(randomSpotlight.attr('id')); 
+        }
+    }
+
+    $scope.LoadMoreWhatWeDo = function() {          
+        $scope.whatWeDoPageNum++;
+        var serviceHeight = $($scope.features.find('.service')).outerHeight();
+        offset = $scope.hasMoreWhatWeDo() ? $scope.features.height() + serviceHeight + 10 : $scope.features.height() + serviceHeight - 55;         
+
+        $scope.features.animate({ height: offset }, 500, function() {
+            $scope.features.css('height', 'auto');
+            if($scope.whatWeDoPageNum===2) $scope.features.css('padding-bottom', '6px');
+        });        
+
+        var min = $scope.initialSize + ($scope.pageSize * ($scope.whatWeDoPageNum - 2));
+        var max = $scope.initialSize + ($scope.pageSize * ($scope.whatWeDoPageNum - 1));
+
+        for(var i = 0; i < $scope.featureItems.length; i++) {
+            var dataIndex = parseInt($($scope.featureItems[i]).attr('data-index'));
+
+            if (dataIndex >= min && dataIndex <= max) {
+                $($scope.featureItems[i]).addClass('visible').show();
+            }
+        }    
+    };
+
+    $scope.LoadMoreAdditionalItems = function() {
+        $scope.additionalItemsPageNum++;
+        var additionalItemHeight = $($scope.featuredInsights.find('.featured-insight')).outerHeight();
+        offset = $scope.hasMoreAdditionalItems() ? $scope.featuredInsights.height() + additionalItemHeight + 10 : $scope.featuredInsights.height() + additionalItemHeight - 55;         
+
+        $scope.featuredInsights.animate({ height: (offset) }, { duration: 500 } );
+
+        var min = $scope.pageSize * ($scope.additionalItemsPageNum - 1);
+        var max = $scope.pageSize * $scope.additionalItemsPageNum;
+
+        for(var i = 0; i < $scope.additionalItems.length; i++) {
+            var dataIndex = parseInt($($scope.additionalItems[i]).attr('data-index'));
+
+            if (dataIndex >= min && dataIndex <= max) {
+                $($scope.additionalItems[i]).addClass('visible').show();
+            }
+        }
+    };
+
+    function HideWhatWeDo() {
+        for(var i = 0; i < $scope.featureItems.length; i++) {
+            if (parseInt($($scope.featureItems[i]).attr('data-index')) >= $scope.initialSize) {
+                $($scope.featureItems[i]).hide();
+            }
+        }
+    }
+
+    function HideAdditionalItems() {
+        for(var i = 0; i < $scope.additionalItems.length; i++) {
+            if (parseInt($($scope.additionalItems[i]).attr('data-index')) >= $scope.pageSize) {
+                $($scope.additionalItems[i]).hide();
+            }
+        }   
+    }
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }    
+
+    function StringToBoolean(item) {
+        if (item === undefined)
+            return false;
+        switch (item.toLowerCase()) {
+            case "true": case "yes": case "1": return true;
+            case "false": case "no": case "0": case null: return false;
+            default: false;
+        }
+    };
+
+    $scope.init();
+});
+app.controller("InsightsSearch", function ($scope, $http, $sce, $log, $element, $attrs, $window, $timeout, queryStringService, filterService, historyStateService) {
+    $scope.keyword = "";
+    $scope.entityType = "";
+    $scope.pageSize = 10;
+    $scope.count = 0;
+    $scope.pageNum = 0;
+    $scope.list = [];
+    $scope.activityPageSize = 5;
+    $scope.getPast = false;
+    $scope.getFuture = false;
+    $scope.filters = filterService.get();
+    $scope.activeFilter = 'all';
+    $scope.isLoading = false;
+    $scope.isInitialSearch = true;
+    $scope.searchComplete = false;
+    $scope.isKeywordSearch = false;
+    $scope.isEventSearch = false;
+    $scope.isActivitySearch = true;
+    var History = window.History;
+
+    $scope.hasMore = function() {
+        return (($scope.pageNum + 1) * ($scope.isActivitySearch ? $scope.activityPageSize : $scope.pageSize)) < $scope.count || $scope.isLoading;
+    };
+
+    function StringToBoolean(item) {
+        if (item === undefined)
+            return false;
+        switch (item.toLowerCase()) {
+            case "true": case "yes": case "1": return true;
+            case "false": case "no": case "0": case null: return false;
+            default: false;
+        }
+    };
+
+    $scope.init = function () {
+        $scope.pageSize = parseInt($element.attr('data-load-more-result-count'));
+        $scope.activityPageSize = parseInt($element.attr('data-recent-activity-size'));
+        $scope.filters = filterService.get();
+        checkForFilters('keyword');
+        checkForFilters('entityType');
+        checkForFilters('pageNum');
+        if($scope.filters.length > 0 || !IsNullOrEmpty($scope.keyword)) {
+            $scope.isActivitySearch = false;
+        }
+        $scope.isInitialSearch = true;
+        if(historyStateService.hasState()){
+            historyStateService.loadState($scope);
+            $scope.isInitialSearch = false;
+        }else{
+            $scope.Search();
+        }
+
+    };
+
+    function checkForFilters(filterName) {
+        var arr = queryStringService.getParametersByName(filterName);
+        if(filterName == 'keyword' && arr.length > 0) {
+            $scope.isKeywordSearch = true;
+            $scope.keyword = arr[0];
+        }
+        if(filterName == 'pageNum' && arr.length > 0) {
+            $scope.pageNum = parseInt(arr[0]);
+        }
+        if(filterName == 'entityType' && arr.length > 0) {
+            var name = decodeURI(arr[0]);
+            if(!IsNullOrEmpty(name))
+            {
+                angular.forEach(filterService.get(), function (filteritem) {
+                    if(filteritem.queryName == filterName){
+                        $scope.removeFilter(filteritem,false);
+                    }
+                });
+                var filter = { text: name, value: arr[0], queryName: filterName };
+                filterService.add(filter)
+                $scope.activeFilter = name;
+                $scope.isEventSearch = IsEvent(name);
+            }
+        }
+    }
+
+    function GetNameForValue(filterValue) {
+        var value = [];
+        $("div.insight-filters a[data-id-value=" + filterValue + "]").map(function () {
+            value.push($(this).data('titleValue'))
+        })
+        if(value.length > 0) return value[0]
+        else return "";
+    }
+    function buildState(){
+        var stateObj = {
+            list: $scope.list,
+            count: $scope.count,
+            queryString: $scope.queryString
+        };
+        return stateObj;
+    }
+    $scope.Search = function () {
+		$scope.isLoading = true;
+
+        BuildQueryString($scope.isActivitySearch ? $scope.activityPageSize : $scope.pageSize, $scope.pageNum);
+
+        $http.get("/webapi/NewsEventApi/Search/" + $scope.queryString).success(function (response) {
+			$timeout(function () {
+				angular.forEach(response.data.list, function (item) {
+                    angular.forEach($scope.sanitizeFields, function (fieldName) {
+                        item[fieldName] = $sce.trustAsHtml(item[fieldName]);
+                    });
+                });
+
+                if ($scope.pageNum > 0) {
+                    $scope.list = $scope.list.concat(response.data.list);
+                } else {
+                    $scope.list = response.data.list;
+                }
+
+                $scope.count = response.data.count;
+                $scope.searchComplete = true;
+                $scope.isInitialSearch = false;
+                $scope.isLoading = false;
+                History.replaceState(buildState(), document.title, $scope.queryString);
+            }, 0, true);
+        }).error(function (data, status, headers, config) {
+			console.log('error in NewsEventApi: ' + status);
+        });
+    };
+
+    $scope.addFilter = function (filterValue, filterText, filterQueryName) {
+    	$scope.isKeywordSearch = false;
+        $scope.isActivitySearch = false;
+    	$scope.isEventSearch = IsEvent(filterText);
+    	$scope.clearSearch(false);
+        $scope.activeFilter = filterValue;
+    	doSearch = (typeof doSearch === "undefined") ? true : doSearch;
+        var filter = { text: filterText, value: filterValue, queryName: filterQueryName };
+
+        if (!filterService.filterExists(filter)) {
+            $scope.isLoading = true;
+
+            if(filterQueryName != undefined && filterQueryName != null && filterQueryName != "") {
+                if (!filterService.filterQueryNameExists(filter)) {
+                    filterService.add(filter);
+                } else {
+                    filterService.update(filter)
+                }
+            } else{
+                filterService.add(filter)
+            }
+
+            $scope.pageNum = 0;
+            if(doSearch) {
+				$scope.Search();
+            }
+        }
+    };
+
+    $scope.clearSearch = function(doSearch) {
+    	$scope.searchComplete = false;
+        doSearch = (typeof doSearch === "undefined") ? true : doSearch;
+
+        angular.forEach(filterService.get().slice(0), function (item) {
+            $scope.removeFilter(item,false);
+        });
+
+        if(doSearch) {
+            $scope.Search();
+        }
+    };
+
+    $scope.removeFilter = function (filter, doSearch) {
+        doSearch = (typeof doSearch === "undefined") ? true : doSearch;
+        var ndx = $scope.filters.indexOf(filter);
+        $scope.filters.splice(ndx, 1);
+
+        if(!$scope.isKeywordSearch) {
+            if(filter.queryName == "keyword") { $scope.keyword = ""; }
+        }
+
+        $scope.pageNum = 0;
+        if(doSearch) {
+            $scope.Search();
+        }
+    };
+
+    $scope.keywordSearch = function() {
+    	$scope.isKeywordSearch = true;
+        $scope.isActivitySearch = false;
+    	$scope.isEventSearch = false;
+        $scope.clearSearch(true);
+    };
+
+    $scope.loadMore = function (entityType) {
+        $scope.pageNum++;
+		$scope.Search();
+    };
+
+    $scope.resetAll = function () {
+        $scope.activeFilter = 'all';
+    	$scope.keyword = '';
+    	$scope.entityType = '';
+    	$scope.list = [];
+        $scope.isInitialSearch = true;
+        $scope.isActivitySearch = true;
+        $scope.isKeywordSearch = false;
+        $scope.isEventSearch = false;
+    	$scope.clearSearch(true);
+        $scope.pageNum = 0;
+    }
+
+    function BuildQueryString(pageSize, pageNum) {
+        var updatedQueryString = '';
+        $scope.queryString = "";
+        $scope.queryString = queryStringService.addQueryString('pageSize', pageSize, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('pageNum', pageNum, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('loadAllByPageSize', $scope.isInitialSearch, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('getPast', $scope.isEventSearch, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('getFuture', $scope.getFuture, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('getEvents', $scope.isEventSearch, $scope.queryString);
+
+        //Add Keyword for filters if it has value or else remove filter if exist
+        if (!IsNullOrEmpty($scope.keyword)) {
+            var filterKeyword = { text: $scope.keyword, value: $scope.keyword, queryName: 'keyword' };
+            filterService.update(filterKeyword);
+        } else {
+            filterService.removeByQueryName('keyword');
+        }
+
+        //Add all filters for query string.
+        angular.forEach(filterService.get(), function (filteritem) {
+            if (!IsNullOrEmpty(filteritem.value)) {
+                $scope.queryString = queryStringService.addQueryString(filteritem.queryName, filteritem.value, $scope.queryString);
+            }
+        });
+
+        updatedQueryString = queryStringService.removeQueryString('pageSize', pageSize, $scope.queryString);
+        updatedQueryString = queryStringService.removeQueryString('loadAllByPageSize', $scope.isInitialSearch, updatedQueryString);
+        updatedQueryString = queryStringService.removeQueryString('getPast', $scope.isEventSearch, updatedQueryString);
+        updatedQueryString = queryStringService.removeQueryString('getFuture', $scope.getFuture, updatedQueryString);
+        updatedQueryString = queryStringService.removeQueryString('getEvents', $scope.isEventSearch, updatedQueryString);
+
+        if (pageNum <= 0) {
+            updatedQueryString = queryStringService.removeQueryString('pageNum', pageNum, updatedQueryString);
+        }
+    }
+
+    function IsEvent(value) {
+        return (value.toLowerCase().indexOf('event') > -1);
+    }
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }
+
+    $scope.init();
+});
+
+app.controller("KnowledgeSearch", function ($scope, $http, $sce, $log, $element, $attrs, $window, $timeout, queryStringService, filterService, historyStateService) {
+    $scope.knowledgeId = '';
+    $scope.keyword = '';
+    $scope.entityType = '';
+    $scope.pageSize = 10;
+    $scope.count = 0;
+    $scope.pageNum = 0;
+    $scope.list = [];
+    $scope.activityPageSize = 5;
+    $scope.filters = filterService.get();
+    $scope.activeFilter = 'all';
+    $scope.isLoading = false;
+    $scope.isInitialSearch = true;
+    $scope.isActivitySearch = true;
+    $scope.searchComplete = false;
+    $scope.isNewsletterSearch = false;
+    var History = window.History;
+
+    $scope.hasMore = function() {
+        return (($scope.pageNum + 1) * ($scope.isActivitySearch ? $scope.activityPageSize : $scope.pageSize)) < $scope.count || $scope.isLoading;
+    };
+
+    function StringToBoolean(item) {
+        if (item === undefined)
+            return false;
+        switch (item.toLowerCase()) {
+            case "true": case "yes": case "1": return true;
+            case "false": case "no": case "0": case null: return false;
+            default: false;
+        }
+    };
+
+    $scope.init = function () {
+        $scope.pageSize = parseInt($element.attr('data-load-more-result-count'));
+        $scope.activityPageSize = parseInt($element.attr('data-recent-activity-size'));
+        $scope.filters = filterService.get();
+        $scope.knowledgeId = $element.attr('data-knowledge-id');
+        checkForFilters('keyword');
+        checkForFilters('entityType');
+        checkForFilters('pageNum');
+        if($scope.filters.length > 0 || !IsNullOrEmpty($scope.keyword)) {
+            $scope.isActivitySearch = false;
+        }
+        if(historyStateService.hasState()){
+            historyStateService.loadState($scope);
+            $scope.isInitialSearch = false;
+        }else{
+            $scope.Search();
+        }
+    };
+    function buildState(){
+        var stateObj = {
+            list: $scope.list,
+            count: $scope.count,
+            queryString: $scope.queryString
+        };
+        return stateObj;
+    }
+    function checkForFilters(filterName) {
+        var arr = queryStringService.getParametersByName(filterName);
+        if(filterName == 'keyword' && arr.length > 0) {
+            $scope.isKeywordSearch = true;
+            $scope.keyword = decodeURIComponent(arr[0]);
+        }
+        if(filterName == 'pageNum' && arr.length > 0) {
+            $scope.pageNum = parseInt(arr[0]);
+        }
+        if(filterName == 'entityType' && arr.length > 0) {
+            var name = decodeURI(arr[0]);
+            if(!IsNullOrEmpty(name)) {
+                angular.forEach(filterService.get(), function (filteritem) {
+                    if(filteritem.queryName == filterName){
+                        $scope.removeFilter(filteritem,false);
+                    }
+                });
+
+                var filter = { text: name, value: arr[0], queryName: filterName };
+                filterService.add(filter);
+                $scope.activeFilter = name;
+                $scope.isNewsletterSearch = IsNewsletter(name);
+            }
+        }
+    }
+
+    function GetNameForValue(filterValue) {
+        var value = [];
+        $("div.insight-filters a[data-id-value=" + filterValue + "]").map(function () {
+            value.push($(this).data('titleValue'))
+        })
+        if(value.length > 0) return value[0]
+        else return "";
+    }
+
+    $scope.Search = function () {
+		$scope.isLoading = true;
+        BuildQueryString($scope.isActivitySearch ? $scope.activityPageSize : $scope.pageSize, $scope.pageNum);
+
+        var url = "/webapi/KnowledgeApi/Search/";
+        if ($scope.isNewsletterSearch) {
+            var url = "/webapi/KnowledgeApi/NewsletterSearch/";
+        }
+
+        $http.get(url + $scope.queryString).success(function (response) {
+			$timeout(function () {
+				angular.forEach(response.data.list, function (item) {
+                    angular.forEach($scope.sanitizeFields, function (fieldName) {
+                        item[fieldName] = $sce.trustAsHtml(item[fieldName]);
+                    });
+                });
+
+                if ($scope.pageNum > 0) {
+                    $scope.list = $scope.list.concat(response.data.list);
+                } else {
+                    $scope.list = response.data.list;
+                }
+
+                $scope.count = response.data.count;
+                $scope.searchComplete = true;
+                $scope.isInitialSearch = false;
+                $scope.isLoading = false;
+                History.replaceState(buildState(), document.title, $scope.queryString);
+            }, 0, true);
+        }).error(function (data, status, headers, config) {
+			console.log('error: ' + status);
+        });
+    };
+
+    $scope.SearchAllProfessionals = function () {
+        $rootScope.goToUrl('/professionals/?knowledge=' + $scope.knowledgeId);
+    };
+
+    $scope.addFilter = function (filterValue, filterText, filterQueryName) {
+    	$scope.isKeywordSearch = false;
+        $scope.isActivitySearch = false;
+        $scope.isNewsletterSearch = IsNewsletter(filterText);
+    	$scope.clearSearch(false);
+        $scope.activeFilter = filterValue;
+    	doSearch = (typeof doSearch === "undefined") ? true : doSearch;
+        var filter = { text: filterText, value: filterValue, queryName: filterQueryName };
+
+        if (!filterService.filterExists(filter)) {
+            $scope.isLoading = true;
+
+            if(filterQueryName != undefined && filterQueryName != null && filterQueryName != "") {
+                if (!filterService.filterQueryNameExists(filter)) {
+                    filterService.add(filter);
+                } else {
+                    filterService.update(filter)
+                }
+            } else{
+                filterService.add(filter)
+            }
+
+            $scope.pageNum = 0;
+            if(doSearch) {
+                $scope.Search();
+            }
+        }
+    };
+
+    $scope.clearSearch = function(doSearch) {
+    	$scope.searchComplete = false;
+        doSearch = (typeof doSearch === "undefined") ? true : doSearch;
+
+        angular.forEach(filterService.get().slice(0), function (item) {
+            $scope.removeFilter(item, false);
+        });
+
+        if(doSearch) {
+            $scope.Search();
+        }
+    };
+
+    $scope.removeFilter = function (filter, doSearch) {
+        doSearch = (typeof doSearch === "undefined") ? true : doSearch;
+        var ndx = $scope.filters.indexOf(filter);
+        $scope.filters.splice(ndx, 1);
+
+        if(!$scope.isKeywordSearch) {
+            if(filter.queryName == "keyword") { $scope.keyword = ""; }
+        }
+
+        $scope.pageNum = 0;
+        if(doSearch) {
+            $scope.Search();
+        }
+    };
+
+    $scope.keywordSearch = function() {
+        $scope.isKeywordSearch = true;
+        $scope.isActivitySearch = false;
+        $scope.isNewsletterSearch = false;
+    	$scope.clearSearch(true);
+    };
+
+    $scope.loadMore = function () {
+		$scope.pageNum++;
+		$scope.Search();
+    };
+
+    $scope.resetAll = function () {
+        $scope.activeFilter = 'all';
+    	$scope.keyword = '';
+    	$scope.entityType = '';
+    	$scope.list = [];
+        $scope.isActivitySearch = true;
+        $scope.isKeywordSearch = false;
+        $scope.isNewsletterSearch = false;
+    	$scope.clearSearch(true);
+        $scope.pageNum = 0;
+    };
+
+    $scope.gotoAnchor = function(x) {
+        $('html, body').animate({scrollTop:$(x).position().top}, 'slow');
+    };
+
+    function BuildQueryString(pageSize, pageNum) {
+        $scope.queryString = "";
+        $scope.queryString = queryStringService.addQueryString('pageSize', pageSize, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('pageNum', pageNum, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('loadAllByPageSize', $scope.isInitialSearch, $scope.queryString);
+
+        //Add Keyword for filters if it has value or else remove filter if exist
+        if (!IsNullOrEmpty($scope.keyword)) {
+            var filterKeyword = { text: $scope.keyword, value: $scope.keyword, queryName: 'keyword' };
+            filterService.update(filterKeyword);
+        } else {
+            filterService.removeByQueryName('keyword');
+        }
+
+        //Add all filters for query string.
+        angular.forEach(filterService.get(), function (filteritem) {
+            if (!IsNullOrEmpty(filteritem.value)) {
+                $scope.queryString = queryStringService.addQueryString(filteritem.queryName, filteritem.value, $scope.queryString);
+            }
+        });
+
+        var updatedQueryString = queryStringService.removeQueryString('pageSize', pageSize, $scope.queryString);
+        var updatedQueryString = queryStringService.removeQueryString('loadAllByPageSize', $scope.isInitialSearch, updatedQueryString);
+
+        if (pageNum <= 0) {
+            updatedQueryString = queryStringService.removeQueryString('pageNum', pageNum, updatedQueryString);
+        }        
+    }
+
+    function IsNewsletter(value) {
+        return (value.toLowerCase().indexOf('newsletter') > -1);
+    }
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }
+
+    $scope.init();
+});
+
+app.controller("LoadMore", function ($scope, $http, $sce, $log, $element, $attrs, $window,$timeout, queryStringService, filterService) {
+    var baseUrl = $attrs.url;
+    $scope.queryString = $window.location.search;
+    $scope.list = [];
+    $scope.pageNum = 0;
+    $scope.pageSize = 5;
+    $scope.count = 0;
+
+    function StringToBoolean(item) {
+        if (item === undefined)
+            return false;
+        switch (item.toLowerCase()) {
+            case "true": case "yes": case "1": return true;
+            case "false": case "no": case "0": case null: return false;
+            default: false;
+        }
+    };
+
+
+    $scope.scrollDisabled = function() {
+        return ($scope.pageNum+1) * $scope.pageSize < $scope.count || $scope.isLoading;
+    };
+    $scope.init = function () {
+        $scope.pageSize = $attrs.pageSize;
+        $scope.defaultQueryParamterName = $attrs.defaultQpName;
+        $scope.defaultQueryParamterValue = $attrs.defaultQpValue;
+
+        if ($scope.defaultQueryParamterName != undefined && $scope.defaultQueryParamterValue != undefined) {
+            $scope.queryString = queryStringService.updateQueryString($scope.defaultQueryParamterName, $scope.defaultQueryParamterValue, $scope.queryString);
+        }
+        $scope.uniqueId = $attrs.uniqueId || 'uniqueId';
+        var queryPageNum = queryStringService.getParameterByName($scope.uniqueId + 'PageNumber');
+        if (queryPageNum != undefined && queryPageNum !== null && queryPageNum != "") {
+            $scope.pageNum = parseInt(queryPageNum);
+            $scope.queryString = queryStringService.updateQueryString('loadAllByPageSize', true, $scope.queryString);
+        }
+        else {
+            queryPageNum = queryStringService.getParameterByName('PageNumber');
+            if (queryPageNum != undefined && queryPageNum !== null && queryPageNum != "") {
+             $scope.pageNum = parseInt(queryPageNum);
+             $scope.queryString = queryStringService.updateQueryString('loadAllByPageSize', true, $scope.queryString);
+            }
+        }
+        $scope.queryString = queryStringService.updateQueryString('pageNum', $scope.pageNum, $scope.queryString);
+        $scope.queryString = queryStringService.updateQueryString('pageSize', $scope.pageSize, $scope.queryString);
+
+        loadList($scope.queryString);
+        $scope.sanitizeFields = [];
+        if ($attrs.sanitizeField)
+            $scope.sanitizeFields = $attrs.sanitizeField.split(',');
+    };
+
+    function loadList() {
+        $http.get('/webapi' + baseUrl + $scope.queryString).success(function (response) {
+            $log.info('Loaded More', response.data);
+            angular.forEach(response.data.list, function (item) {
+                angular.forEach($scope.sanitizeFields, function (fieldName) {
+                    item[fieldName] = $sce.trustAsHtml(item[fieldName]);
+                });
+            });
+
+            $scope.list = $scope.list.concat(response.data.list);
+
+
+            //History JS
+            //$scope.queryString = queryStringService.updateQueryString('loadAllByPageSize', false, $scope.queryString);
+            //var updatedQueryString = '';
+            //if ($scope.uniqueId != undefined && $scope.uniqueId != null && $scope.uniqueId != "" && $scope.pageNum > 0) {
+            //    updatedQueryString = queryStringService.updateQueryString($scope.uniqueId + 'PageNumber', $scope.pageNum, null);
+            //}
+            //else if ($scope.pageNum > 0) {
+            //    updatedQueryString = queryStringService.updateQueryString('PageNumber', $scope.pageNum, null);
+            //}
+            //History.replaceState(null, document.title, updatedQueryString);
+            //End History
+
+            $scope.count = response.data.count;
+
+        }).error(function () {
+            $log.error(arguments);
+        });
+
+    };
+
+    $scope.nextPage = function () {
+        //update
+        var oldvalue = $scope.pageNum;
+        $scope.pageNum++;
+        $scope.queryString = queryStringService.updateQueryString('pageNum', $scope.pageNum, $scope.queryString, oldvalue);
+        loadList();
+
+    };
+
+    // init
+    $scope.init();
+});
+
+app.controller("ProfessionalDetail", function ($scope, $rootScope, $http, $sce, $log, $element, $attrs, $window, $timeout, queryStringService, filterService) {
+    $scope.professionalId = '';
+    $scope.filters = filterService.get();
+    $scope.isLoadingKnowledge = false;    
+    $scope.isLoadingNewsEvents = false;   
+    $scope.isInitialSearch = true;    
+    $scope.searchComplete = false;
+
+    $scope.knowledgePageSize = 5;
+    $scope.knowledgeCount = 0;
+    $scope.knowledgePageNum = 0; 
+    $scope.knowledgeList = [];
+
+    $scope.newseventPageSize = 5;
+    $scope.newseventCount = 0;
+    $scope.newseventPageNum = 0; 
+    $scope.newseventList = [];
+
+    var History = window.History;    
+
+    $scope.hasMoreKnowledge = function() {
+        return ($scope.knowledgePageNum + 1) * $scope.knowledgePageSize < $scope.knowledgeCount || $scope.isLoadingKnowledge;
+    };
+
+    $scope.hasMoreNewsevents  = function() {
+        return ($scope.newseventPageNum + 1) * $scope.newseventPageSize < $scope.newseventCount || $scope.isLoadingNewsEvents;
+    };
+
+    function StringToBoolean(item) {
+        if (item === undefined)
+            return false;
+        switch (item.toLowerCase()) {
+            case "true": case "yes": case "1": return true;
+            case "false": case "no": case "0": case null: return false;
+            default: false;
+        }
+    };
+
+    $scope.init = function () {
+        $scope.knowledgePageSize = parseInt($element.attr('data-knowledge-page-size'));     
+        $scope.newseventPageSize = parseInt($element.attr('data-newsevent-page-size'));     
+        $scope.professionalId = $element.attr('data-professional-id');     
+
+        //$scope.filters = filterService.get();                      
+        //checkForFilters('knowledgePageNum');   
+        //checkForFilters('newseventPageNum');   
+
+        $scope.Search(true, true);
+    };
+
+    function checkForFilters(filterName) {
+        var arr = queryStringService.getParametersByName(filterName);
+
+        if(filterName == 'knowledgePageNum' && arr.length > 0) {
+            $scope.knowledgePageNum = arr[0];   
+        } else if(filterName == 'newseventPageNum' && arr.length > 0) {
+            $scope.newseventPageNum = arr[0];   
+        }
+    };
+
+    $scope.resetAll = function() {        
+        $scope.knowledgeCount = 0;
+        $scope.knowledgePageNum = 0; 
+        $scope.knowledgeList = [];
+
+        $scope.newseventCount = 0;
+        $scope.newseventPageNum = 0; 
+        $scope.newseventList = [];     
+    };
+
+    $scope.Search = function (loadKnowledge, loadNewsEvents) {
+        if(loadKnowledge) $scope.isLoadingKnowledge  = true;       
+        if(loadNewsEvents) $scope.isLoadingNewsEvents  = true;      
+        BuildQueryString(); 
+
+        $http.get("/webapi/ProfessionalsApi/DetailSearch/" + $scope.queryString).success(function (response) {
+            $timeout(function () {
+                if(loadKnowledge) {
+                    angular.forEach(response.data.knowledgeList, function (item) {
+                        angular.forEach($scope.sanitizeFields, function (fieldName) {
+                            item[fieldName] = $sce.trustAsHtml(item[fieldName]);
+                        });
+                    });
+
+                    if ($scope.knowledgePageNum > 0) {
+                        $scope.knowledgeList = $scope.knowledgeList.concat(response.data.knowledgeList);
+                    } else {
+                        $scope.knowledgeList = response.data.knowledgeList;
+                    }
+                    $scope.knowledgeCount = response.data.knowledgeCount;
+                    $scope.isLoadingKnowledge = false;
+                }
+
+                if(loadNewsEvents) {
+                    angular.forEach(response.data.newseventList, function (item) {
+                        angular.forEach($scope.sanitizeFields, function (fieldName) {
+                            item[fieldName] = $sce.trustAsHtml(item[fieldName]);
+                        });
+                    });
+
+                    if ($scope.newseventPageNum > 0) {
+                        $scope.newseventList = $scope.newseventList.concat(response.data.newseventList);
+                    } else {
+                        $scope.newseventList = response.data.newseventList;
+                    }
+                    $scope.newseventCount = response.data.newseventCount;
+                    $scope.isLoadingNewsEvents = false;
+                }
+
+                $scope.searchComplete = true;
+                $scope.isInitialSearch = false;                
+            }, 0, true);
+        }).error(function (data, status, headers, config) {
+        	console.log('error: ' + status);
+        });
+    };
+
+    $scope.loadMoreKnowledge = function () {
+        $scope.knowledgePageNum++;
+        $scope.Search(true, false);
+    };
+
+    $scope.loadMoreNewsevent = function () {
+        $scope.newseventPageNum++;
+        $scope.Search(false, true);
+    };
+
+    function BuildQueryString() {        
+        $scope.queryString = '';        
+        $scope.queryString = queryStringService.addQueryString('professionalId', $scope.professionalId, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('knowledgePageSize', $scope.knowledgePageSize, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('knowledgePageNum', $scope.knowledgePageNum, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('newseventPageSize', $scope.newseventPageSize, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('newseventPageNum', $scope.newseventPageNum, $scope.queryString);        
+    };
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }
+
+    $scope.init();
+});
+app.controller("ProfessionalSearchResult", function ($scope, $http, $sce,$log, $element, $attrs, $window,$timeout, queryStringService, filterService, historyStateService) {
+    $scope.letters = { A: false, B: false, C: false, D: false, E: false, F: false, G: false, H: false, I: false, J: false, K: false, L: false, M: false, N: false, O: false, P: false, Q: false, R: false, S: false, T: false, U: false, V: false, W: false, X: false, Y: false, Z: false };
+    $scope.pageSize = 10;
+    $scope.count = 0;
+    $scope.pageNum = 0;
+    $scope.selectedLetter = "";
+    $scope.firstName = "";
+    $scope.lastName ="";
+    $scope.list = [];
+    $scope.isLoading = false;
+    $scope.filters = filterService.get();
+    $scope.isInitialSearch = true;
+    $scope.isCareersSearch = false;
+    $scope.practicesLabel = "";
+    $scope.defaultPracticesLabel = "";
+    $scope.locationsLabel = "";
+    $scope.defaultLocationsLabel = "";
+    $scope.letterLabel = "Filter A-Z";
+    $scope.selectedLetter = '';
+    $scope.dropdownLetters = [];
+    $scope.titleActive = true;
+    $scope.searchComplete = false;
+    $scope.selectedRegion = {};
+    $scope.regions = [];
+    $scope.selectedService = {};
+    $scope.services = [];
+    var History = window.History;
+
+    $scope.hasMore = function() {
+        return ((parseInt($scope.pageNum) + 1) * $scope.pageSize) < $scope.count || $scope.isLoading;
+    };
+    
+
+    function getSearchLists() {
+        var cachedLetters = JSON.parse(localStorage.getItem('Letters'));
+        var cachedAvailableLetters = JSON.parse(localStorage.getItem('AvailableLetters'));
+        var cachedRegions = JSON.parse(localStorage.getItem('AvailableRegions'));
+        var cachedServices = JSON.parse(localStorage.getItem('AvailableServices'));
+
+        if(IsNullOrEmpty(cachedLetters) || IsNullOrEmpty(cachedAvailableLetters) || IsNullOrEmpty(cachedRegions) || IsNullOrEmpty(cachedServices)) {
+            $http.get('/webapi/ProfessionalsApi/GetSearchLists').success(function (data) {
+                for (var i = 0; i < data.availableLetters.length; i++) {
+                    $scope.dropdownLetters.push(data.availableLetters[i].toUpperCase());
+                    if (data.availableLetters[i].toUpperCase() in $scope.letters)
+                        $scope.letters[data.availableLetters[i].toUpperCase()] = true;
+                }
+
+                for (var i = 0; i < data.regions.length; i++) {
+                    if (!(data.regions[i] in $scope.regions)) {
+                        $scope.regions.push(data.regions[i]);
+                    }
+                }
+
+                for (var i = 0; i < data.services.length; i++) {
+                    if (!(data.services[i] in $scope.services)) {
+                        $scope.services.push(data.services[i]);
+                    }
+                }
+
+                localStorage.setItem('Letters', JSON.stringify($scope.letters));
+                localStorage.setItem('AvailableLetters', JSON.stringify($scope.dropdownLetters));
+                localStorage.setItem('AvailableRegions', JSON.stringify($scope.regions));
+                localStorage.setItem('AvailableServices', JSON.stringify($scope.services));
+                UpdateDefaultDropDownValues();
+            }).error(function (data, status, headers, config) {
+                console.log('ERROR IN PROFESSIONALSAPI GET SEARCH LISTS: ' + status);
+            });
+        } else {
+            $scope.letters = cachedLetters;
+            $scope.availableLetters = $scope.dropdownLetters = cachedAvailableLetters;
+            $scope.regions = cachedRegions;
+            $scope.services = cachedServices;
+            UpdateDefaultDropDownValues();
+        }
+    }
+
+    function UpdateDefaultDropDownValues() {
+        $scope.dropdownLetters.unshift($scope.letterLabel);
+        var previousLetter = checkForDropDownFilters('startswith');
+        if(previousLetter) {
+            $scope.selectedLetter = previousLetter;
+        } else {
+            $scope.selectedLetter = $scope.dropdownLetters[0];
+        }
+
+        $scope.regions.unshift({ id: '0', name: $scope.defaultLocationsLabel });
+        var previousOffice = checkForDropDownFilters('offices');
+        if(previousOffice) {
+            $scope.selectedRegion = previousOffice;
+        } else {
+            $scope.selectedRegion = $scope.regions[0];
+        }
+
+        $scope.services.unshift({ id: '0', title: $scope.defaultPracticesLabel });
+        var previousService = checkForDropDownFilters('services');
+        if(previousService) {
+            $scope.selectedService = previousService;
+        } else {
+            $scope.selectedService = $scope.services[0];
+        }
+    }
+
+    function checkForDropDownFilters(filterName) {
+        var arr = queryStringService.getParametersByName(filterName);
+        if(arr.length > 0) {
+            if(filterName == "services") {
+                for(var i = 0; i < $scope.services.length; i++) {
+                    if($scope.services[i].id == arr[0]) {
+                        $scope.selectedService = $scope.services[i];
+                        $scope.practicesLabel = $scope.services[i].title;
+
+                        angular.forEach(filterService.get(), function (filteritem) {
+                            if(filteritem.queryName == filterName){
+                                $scope.removeFilter(filteritem, false);
+                            }
+                        });
+                        var filter = { text: $scope.services[i].title, value: $scope.services[i].id, queryName: filterName };
+                        filterService.add(filter);
+                        return $scope.services[i];
+                    }
+                }
+            } else if(filterName == "offices") {
+                for(var i = 0; i < $scope.regions.length; i++) {
+                    if($scope.regions[i].id == arr[0]) {
+                        $scope.selectedRegion = $scope.regions[i];
+                        $scope.locationsLabel = $scope.regions[i].name;
+
+                        angular.forEach(filterService.get(), function (filteritem) {
+                            if(filteritem.queryName == filterName){
+                                $scope.removeFilter(filteritem, false);
+                            }
+                        });
+                        var filter = { text: $scope.regions[i].name, value: $scope.regions[i].id, queryName: filterName };
+                        filterService.add(filter);
+                        return $scope.regions[i];
+                    }
+                }
+            } else if (filterName == 'startswith') {
+                for(var i = 0; i < $scope.dropdownLetters.length; i++) {
+                    if($scope.dropdownLetters[i].id == arr[0]) {
+                        $scope.selectedLetter = $scope.dropdownLetters[i];
+                        $scope.letterLabel = $scope.dropdownLetters[i];
+
+                        angular.forEach(filterService.get(), function (filteritem) {
+                            if(filteritem.queryName == filterName){
+                                $scope.removeFilter(filteritem, false);
+                            }
+                        });
+                        var filter = { text: $scope.dropdownLetters[i], value: $scope.dropdownLetters[i], queryName: filterName };
+                        filterService.add(filter);
+                        return $scope.dropdownLetters[i];
+                    }
+                }
+            }
+        }
+    }
+
+    function StringToBoolean(item) {
+        if (item === undefined)
+            return false;
+        switch (item.toLowerCase()) {
+            case "true": case "yes": case "1": return true;
+            case "false": case "no": case "0": case null: return false;
+            default: false;
+        }
+    };
+
+    $scope.init = function () {
+        $scope.pageSize = parseInt($element.attr('data-load-more-result-count'));
+        $scope.defaultLocationsLabel = $element.attr('data-default-location-label');
+        $scope.defaultPracticesLabel = $element.attr('data-default-practices-label');
+        $scope.practicesLabel = $scope.defaultPracticesLabel;
+        $scope.locationsLabel = $scope.defaultLocationsLabel;
+        $scope.filters = filterService.get();
+        getSearchLists();
+        checkForFilters('firstname');
+        checkForFilters('lastname'); 
+        checkForFilters('startswith');
+        checkForFilters('schools');
+        checkForFilters('pageNum');
+
+        if ($scope.filters.length >= 0) {
+            if (isProfessionalLanding() && !$scope.isCareersSearch) {
+                return;
+            } else if(historyStateService.hasState()){
+                historyStateService.loadState($scope);
+                setTitleActive();
+                $scope.searchComplete = true;
+                $scope.isInitialSearch = false;
+            }else{
+                $scope.Search();
+            }
+        }
+    };
+
+    function setTitleActive() {
+        /// This sets the titleActive appropriately to coincide with its value, when hitting the back button on a professional
+        if (window.History.getState()['cleanUrl'].indexOf('sortBy=title') != -1) {
+            $scope.titleActive = true;
+        }
+    }
+
+    function isProfessionalLanding() {
+        return window.location.href.indexOf("pageNum") == -1;
+    }
+
+    function checkForFilters(filterName) {
+        var arr = queryStringService.getParametersByName(filterName);
+        if(filterName == 'firstname' && arr.length > 0) {
+            $scope.firstName = arr[0];
+            $scope.addFilter($scope.firstName, $scope.firstName, 'firstname', false);
+        }
+        if(filterName == 'lastname' && arr.length > 0) {
+            $scope.lastName = arr[0];
+            $scope.addFilter($scope.lastName, $scope.lastName,'lastname', false);
+        }
+        if((filterName == 'schools') && arr.length > 0) {
+            var schoolNameArr = queryStringService.getParametersByName('schoolname');
+            var schoolName = schoolNameArr.length > 0 ? decodeURIComponent(schoolNameArr[0]) : '';
+            $scope.addFilter(schoolName, arr[0], 'schools', false);
+            $scope.isCareersSearch = true;
+        }
+        if(filterName == 'startswith' && arr.length > 0) {
+            $scope.addFilter(arr[0],arr[0],'startswith', false);
+        }
+        if (filterName == 'pageNum' && arr.length > 0) {
+            $scope.addFilter(arr[0], arr[0], 'pageNum', false);
+        }
+    }
+    function buildState(){
+        var stateObj = {
+            list: $scope.list,
+            count: $scope.count,
+            queryString: $scope.queryString
+        };
+        return stateObj;
+    }
+    $scope.Search = function () {
+        $scope.isLoading = true;
+        BuildQueryString();
+        //scroll to bottom of search form
+        if ($scope.isInitialSearch) {
+            var target = $element.find('.professional-search-form');
+            if(target) ScrollToLocation(target.offset().top + target.height() + 30);
+        }
+        $http.get("/webapi/ProfessionalsApi/Search/" + $scope.queryString).success(function (response) {
+            $timeout(function () {
+                sortFilters();
+
+                angular.forEach(response.data.list, function (item) {
+                    angular.forEach($scope.sanitizeFields, function (fieldName) {
+                        item[fieldName] = $sce.trustAsHtml(item[fieldName]);
+                    });
+                });
+
+                if ($scope.pageNum > 0) {
+                    $scope.list = $scope.list.concat(response.data.list);
+                } else {
+                    $scope.list = response.data.list;
+                }
+
+                $scope.count = response.data.count;
+                $scope.searchComplete = true;
+                $scope.isInitialSearch = false;
+                $scope.isLoading = false;
+                History.replaceState(buildState(), document.title, $scope.queryString);
+            }, 0, true);
+        }).error(function (data, status, headers, config) {
+
+        });
+    };
+
+    $scope.clearAndAddFilter = function (filterText, filterValue, filterQueryName) {
+        $scope.clearFilters(false);
+        $scope.addFilter(filterText, filterValue, filterQueryName);
+    };
+
+    $scope.clearFilters = function(doSearch) {
+        angular.forEach(filterService.get().slice(0), function (item) {
+            $scope.removeFilter(item,false);
+        });
+        $scope.selectedLetter = $scope.dropdownLetters[0];
+        $scope.selectedRegion = $scope.regions[0];
+        $scope.selectedService = $scope.services[0];
+        $scope.searchComplete = false;
+        History.replaceState(null, document.title, '?');
+        RemoveCareersSearch();
+        $scope.titleActive = false;
+        $scope.isInitialSearch = true;
+    };
+
+    $scope.fullSearch = function() {
+        $scope.setDefaultForDropDown('startswith', false);
+        $scope.setDefaultForDropDown('offices', false);
+        $scope.setDefaultForDropDown('services', false);
+        $scope.selectedLetter = '';
+        $scope.titleActive = true;
+        $scope.Search();
+    };
+
+    $scope.setDefaultForDropDown = function (filterQueryName,doSearch) {
+        doSearch = (typeof doSearch === "undefined") ? true : doSearch;
+
+        filterService.removeByQueryName(filterQueryName);
+        if(filterQueryName == "services") {
+            $scope.practicesLabel = $scope.defaultPracticesLabel;
+            $scope.selectedService = $scope.services[0];
+        }
+        if(filterQueryName == "offices") {
+            $scope.locationsLabel = $scope.defaultLocationsLabel;
+            $scope.selectedRegion = $scope.regions[0];
+        }
+        if(filterQueryName == "startswith") {
+            $scope.letterLabel = $scope.letterLabel;
+            $scope.selectedLetter = $scope.dropdownLetters[0];
+        }
+        if(doSearch) {
+            $scope.Search();
+        }
+    };
+
+    $scope.updateFilterForDropDown = function(filter, filterQueryName){
+        angular.forEach(filterService.get(), function (filteritem) {
+            if(filteritem.queryName == filterQueryName){
+                $scope.removeFilter(filteritem, false);
+            }
+        });
+        if (!IsNullOrEmpty(filter.id) && filter.id != 0) {
+            $scope.addFilter(filterQueryName == 'offices' ? filter.name : filter.title, filter.id, filterQueryName);
+        } else if(filterQueryName == 'startswith') {
+            $scope.addFilter(filter, filter, filterQueryName);
+        }
+    };
+
+    $scope.addFilter = function (filterText, filterValue, filterQueryName,doSearch) {
+        doSearch = (typeof doSearch === "undefined") ? true : doSearch;
+        var filter = { text: filterText, value: filterValue, queryName: filterQueryName };
+        if (!filterService.filterExists(filter)) {
+            $scope.isLoading = true;
+            if (filterQueryName != undefined && filterQueryName != null && filterQueryName != "" && filterQueryName.indexOf("pageNum") == -1) {
+                if (!filterService.filterQueryNameExists(filter)) {
+                    filterService.add(filter);
+                } else {
+                    filterService.update(filter)
+                }
+            } else {
+                if (filterQueryName.indexOf("pageNum") == -1) {
+                    filterService.add(filter);
+                }
+            }
+            if(filterQueryName == "services") {
+                $scope.practicesLabel = filterText;
+                $scope.titleActive = true;
+            }
+            if(filterQueryName == "offices") {
+                $scope.locationsLabel = filterText;
+                $scope.titleActive = true;
+            }
+            if(filterQueryName == "startswith") {
+                $scope.letterLabel = $scope.selectedLetter = filterText;
+                $scope.titleActive = false;
+            }
+            if (filterQueryName === "pageNum") {
+                $scope.pageNum = filterText;
+                $scope.titleActive = false;
+            } else {
+                $scope.pageNum = 0;
+            }
+            if(doSearch) {
+                $scope.Search();
+            }
+        }
+    };
+
+    $scope.removeFilter = function (filter, doSearch) {
+        doSearch = (typeof doSearch === "undefined") ? true : doSearch;
+        var ndx = $scope.filters.indexOf(filter);
+        $scope.filters.splice(ndx, 1);
+
+        if($scope.filters.length <= 0) {
+            ScrollToLocation(0);
+            $scope.searchComplete = false;
+            doSearch = false;
+            $scope.isInitialSearch = true;
+            History.replaceState(null, document.title, '?');
+        }
+
+        if(filter.queryName == "firstname"){
+            $scope.firstName = "";
+        }
+        if(filter.queryName == "lastname"){
+            $scope.lastName = "";
+        }
+        if(filter.queryName == "startswith"){
+            $scope.titleActive = true;
+        }
+        $scope.setDefaultForDropDown(filter.queryName,doSearch);
+        $scope.pageNum = 0;
+        if(doSearch) {
+            $scope.Search();
+        }
+        RemoveCareersSearch();
+    };
+
+    $scope.resetAll = function() {
+        $scope.setDefaultForDropDown('startswith');
+        $scope.setDefaultForDropDown('offices');
+        $scope.setDefaultForDropDown('services');
+        $scope.firstName = '';
+        $scope.lastName = '';
+        $scope.selectedLetter = '';
+    };
+
+    $scope.nextPage = function () {
+        $scope.pageNum++;
+        $scope.Search();
+    };
+
+    $scope.sortBy = function(sort){
+        if(sort=='alpha'){
+            $scope.titleActive = false;
+        }else{
+            $scope.titleActive = true;
+        }
+        $scope.pageNum = 0;
+        $scope.Search();
+    }
+
+    $scope.ReturnToCareers = function () {
+        History.back();
+    };
+
+    function BuildQueryString() {
+        $scope.queryString = "";
+        $scope.queryString = queryStringService.addQueryString('pageSize', $scope.pageSize, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('pageNum', $scope.pageNum, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('loadAllByPageSize', $scope.isInitialSearch, $scope.queryString);
+
+        //Add sorting
+        if($scope.titleActive == false){
+            $scope.queryString = queryStringService.addQueryString('sortBy', 'alpha', $scope.queryString);
+        } else {
+            $scope.queryString = queryStringService.addQueryString('sortBy', 'title', $scope.queryString);
+        }
+
+        //Add FirstName for filters if it has value or else remove filter if exist
+        if (!IsNullOrEmpty($scope.firstName)) {
+            var filterFirstName = { text: $scope.firstName, value: $scope.firstName, queryName: 'firstname' };
+            filterService.update(filterFirstName);
+        } else {
+            filterService.removeByQueryName('firstname');
+        }
+
+        //Add LastName for filters if it has value or else remove filter if exist
+        if (!IsNullOrEmpty($scope.lastName)) {
+            var filterLastName = { text: $scope.lastName, value: $scope.lastName, queryName: 'lastname' };
+            filterService.update(filterLastName);
+        } else {
+            filterService.removeByQueryName('lastname');
+        }
+
+        //Add all filters for query string.
+        angular.forEach(filterService.get(), function (filteritem) {
+            if (!IsNullOrEmpty(filteritem.value)) {
+                $scope.queryString = queryStringService.addQueryString(filteritem.queryName, filteritem.value, $scope.queryString);
+            }
+        });
+
+        var updatedQueryString = queryStringService.removeQueryString('pageSize', $scope.pageSize, $scope.queryString);
+        var updatedQueryString = queryStringService.removeQueryString('loadAllByPageSize', $scope.isInitialSearch, updatedQueryString);
+        if ($scope.pageNum <= 0) {
+            updatedQueryString = queryStringService.removeQueryString('pageNum', $scope.pageNum, updatedQueryString);
+        }
+    };
+
+    //no matter what first and last name should be first in the filter list
+    function sortFilters() {
+        var keywordArray = [];
+        for(var i = 0; i < $scope.filters.length; i++) {
+            if ($scope.filters[i].queryName == 'firstname' || $scope.filters[i].queryName == 'lastname') {
+                keywordArray.push($scope.filters[i]);
+                $scope.filters.splice(i, 1);
+                i--;
+            }
+        }
+        for(i = 0; i < keywordArray.length; i++) $scope.filters.unshift(keywordArray[i]);
+    }
+
+    $scope.isNullOrEmpty = function(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }
+
+    function RemoveCareersSearch() {
+        $scope.isCareersSearch = false;
+    }
+
+    function ScrollToLocation(target) {
+        if($window.innerWidth < 1100) {
+            $('html,body').animate({ scrollTop: target }, 500);
+        }
+    }
+
+    $scope.init();
+});
+
+app.controller('RegionDetail', function ($scope, $rootScope, $http, $sce, $log, $element, $attrs, $window, $timeout, queryStringService) {    
+    $scope.newseventPageSize = 3;
+    $scope.newseventCount = 0;
+    $scope.newseventPageNum = 0; 
+    $scope.newseventList = [];
+    $scope.isLoadingNewsEvents = false;   
+    $scope.regionId = '';            
+    $scope.officeIds = '';
+    $scope.allLevels = [];
+    $scope.levelsVisible = [];
+    var History = window.History;
+
+    $scope.init = function () {
+        $scope.regionId = $element.attr('data-region-id');
+        $scope.officeIds = $element.attr('data-office-ids');
+        $scope.allLevels = $element.attr('data-all-levels').split(',');
+        if($scope.allLevels.length > 0){
+            $scope.levelsVisible.push($scope.allLevels[0]);
+            $scope.allLevels.splice(0, 1);
+        }
+        $scope.Search();
+    };
+
+    $scope.hasMoreNewsevents  = function() {
+        return ($scope.newseventPageNum + 1) * $scope.newseventPageSize < $scope.newseventCount || $scope.isLoadingNewsEvents;
+    };
+
+    $scope.Search = function () {
+        $scope.isLoadingNewsEvents  = true;      
+        BuildQueryString(); 
+
+        $http.get("/webapi/RegionApi/Search/" + $scope.queryString).success(function (response) {
+            $timeout(function () {            
+                angular.forEach(response.data.newseventList, function (item) {
+                    angular.forEach($scope.sanitizeFields, function (fieldName) {
+                        item[fieldName] = $sce.trustAsHtml(item[fieldName]);
+                    });
+                });
+
+                if ($scope.newseventPageNum > 0) {
+                    $scope.newseventList = $scope.newseventList.concat(response.data.newseventList);
+                } else {
+                    $scope.newseventList = response.data.newseventList;
+                }
+
+                $scope.newseventCount = response.data.newseventCount;
+                $scope.isLoadingNewsEvents = false;                
+
+            }, 0, true);
+        }).error(function (data, status, headers, config) {
+        	console.log('error: ' + status);
+        });
+    };
+
+    $scope.loadMoreNewsevent = function () {
+        $scope.newseventPageNum++;
+        $scope.Search();
+    };
+
+    $scope.GetFeaturedProfessionals = function () {
+        if($scope.allLevels.length > 0){
+            $scope.levelsVisible.push($scope.allLevels[0]);
+            $scope.allLevels.splice(0, 1);
+        }
+        //$rootScope.goToUrl('/professionals/?offices=' + $scope.regionId);
+    };
+    $scope.IsProfessionalVisible = function(level) {
+        return $scope.levelsVisible.indexOf(level) > -1;
+    };
+    function BuildQueryString() {        
+        $scope.queryString = '';        
+        $scope.queryString = queryStringService.addQueryString('offices', $scope.officeIds, $scope.queryString);        
+        $scope.queryString = queryStringService.addQueryString('pageSize', $scope.newseventPageSize, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('pageNum', $scope.newseventPageNum, $scope.queryString);        
+    };
+
+    $scope.init();
+});
+app.controller('RegionLanding', function ($scope, $http, $sce, $log, $element, $attrs, $window, $timeout, queryStringService, filterService) {
+    $scope.activeRegionId = '';
+    $scope.regionFilters = $('.region-filters').find('li');
+    $scope.regionList = [];
+    var History = window.History;
+
+    $scope.init = function () {
+        addRegionsToList();
+        setDefaultActiveRegion();
+    };
+
+    $scope.updateActiveRegion = function (regionId) {
+        if(regionId != $scope.activeRegionId) {
+            var regionMap = $element.find('.region-map');
+            var regionMaps = $element.find('.region-maps');
+
+            if(regionId != 0) {
+                if($scope.activeRegionId == 0) {
+                    $(regionMap).animate({opacity: 0}, 25);
+                    $scope.activeRegionId = regionId;
+                    $(regionMap).animate({opacity: 100}, 25, function(){
+                        $(regionMaps).slideDown(500);
+                    });
+                } else {
+                    $(regionMap).animate({opacity: 0}, 300);
+                    $scope.activeRegionId = regionId;
+                    $(regionMap).animate({opacity: 100}, 300);
+                }
+            } else {
+                $(regionMaps).slideUp(500);
+                $scope.activeRegionId = regionId;
+            }
+        }
+
+        History.replaceState(null,document.title,"?regionId=" + $scope.activeRegionId);
+    };
+
+    function addRegionsToList() {
+        angular.forEach($scope.regionFilters, function (region) {
+            $scope.regionList.push($(region).data('region-id'));
+        });
+    }
+
+    function setDefaultActiveRegion() {
+        var region = queryStringService.getParameterByName('regionId');
+        if(region){
+            $scope.activeRegionId = region;            
+        }else{
+            if($scope.regionFilters.length > 0) {
+                $scope.activeRegionId = $scope.regionList[0];
+            }
+        }
+    }
+
+    $scope.init();
+});
+
+app.controller("ServiceDetail", function ($scope, $rootScope, $http, $sce, $log, $element, $attrs, $window, $timeout, queryStringService, filterService, historyStateService) {
+    $scope.serviceId = '';
+    $scope.filters = filterService.get();
+    $scope.isLoadingKnowledge = false;
+    $scope.isLoadingNewsEvents = false;
+    $scope.isInitialSearch = true;
+    $scope.searchComplete = false;
+    $scope.professionalLevels = 0;
+    $scope.knowledgePageSize = 5;
+    $scope.knowledgeCount = 0;
+    $scope.knowledgePageNum = 0;
+    $scope.knowledgeList = [];
+
+    $scope.newseventPageSize = 5;
+    $scope.newseventCount = 0;
+    $scope.newseventPageNum = 0;
+    $scope.newseventList = [];
+
+    $scope.allLevels = [];
+    $scope.levelsVisible = [];
+
+    var History = window.History;
+
+    $scope.hasMoreKnowledge = function() {
+        return ($scope.knowledgePageNum + 1) * $scope.knowledgePageSize < $scope.knowledgeCount || $scope.isLoadingKnowledge;
+    };
+
+    $scope.hasMoreNewsevents  = function() {
+        return ($scope.newseventPageNum + 1) * $scope.newseventPageSize < $scope.newseventCount || $scope.isLoadingNewsEvents;
+    };
+
+    function StringToBoolean(item) {
+        if (item === undefined)
+            return false;
+        switch (item.toLowerCase()) {
+            case "true": case "yes": case "1": return true;
+            case "false": case "no": case "0": case null: return false;
+            default: false;
+        }
+    };
+
+    $scope.init = function () {
+        $scope.knowledgePageSize = parseInt($element.attr('data-knowledge-page-size'));
+        $scope.newseventPageSize = parseInt($element.attr('data-newsevent-page-size'));
+        $scope.serviceId = $element.attr('data-service-id');
+        $scope.allLevels = $element.attr('data-all-levels').split(',');
+        if($scope.allLevels.length > 0){
+            $scope.levelsVisible.push($scope.allLevels[0]);
+            $scope.allLevels.splice(0, 1);
+        }
+        //$scope.filters = filterService.get();
+        checkForFilters('knowledgePageNum');
+        checkForFilters('newseventPageNum');
+        //if(historyStateService.hasState()){
+        //    historyStateService.loadState($scope);
+        //    $scope.isInitialSearch = false;
+        //}else{
+            $scope.Search(true, true);
+        //}
+        checkForFilters('showAllProfessionals');
+    };
+
+    function buildState(){
+        var stateObj;
+        if($scope.newseventList.length > 0){
+            stateObj = {
+                newseventList: $scope.newseventList,
+                newseventCount: $scope.newseventCount,
+                knowledgeList: $scope.knowledgeList,
+                knowledgeCount:$scope.knowledgeCount,
+                queryString: $scope.queryString
+            };
+        }
+        return stateObj;
+    }
+    function checkForFilters(filterName) {
+        var arr = queryStringService.getParametersByName(filterName);
+
+        if(filterName == 'knowledgePageNum' && arr.length > 0) {
+            $scope.knowledgePageNum = arr[0];
+        } else if(filterName == 'newseventPageNum' && arr.length > 0) {
+            $scope.newseventPageNum = arr[0];
+        }
+        else if(filterName == 'showAllProfessionals' && arr.length > 0) {
+            $scope.professionalLevels = parseInt(arr[0]);
+            $scope.SearchAllProfessionals($scope.professionalLevels);
+        }
+    };
+
+    $scope.resetAll = function() {
+        $scope.knowledgeCount = 0;
+        $scope.knowledgePageNum = 0;
+        $scope.knowledgeList = [];
+
+        $scope.newseventCount = 0;
+        $scope.newseventPageNum = 0;
+        $scope.newseventList = [];
+    };
+
+    $scope.Search = function (loadKnowledge, loadNewsEvents) {
+        if(loadKnowledge) $scope.isLoadingKnowledge  = true;
+        if(loadNewsEvents) $scope.isLoadingNewsEvents  = true;
+        BuildQueryString();
+
+        $http.get("/webapi/ServicesApi/DetailSearch/" + $scope.queryString).success(function (response) {
+            $timeout(function () {
+                if(loadKnowledge) {
+                    angular.forEach(response.data.knowledgeList, function (item) {
+                        angular.forEach($scope.sanitizeFields, function (fieldName) {
+                            item[fieldName] = $sce.trustAsHtml(item[fieldName]);
+                        });
+                    });
+
+                    if ($scope.knowledgePageNum > 0) {
+                        $scope.knowledgeList = $scope.knowledgeList.concat(response.data.knowledgeList);
+                    } else {
+                        $scope.knowledgeList = response.data.knowledgeList;
+                    }
+                    $scope.knowledgeCount = response.data.knowledgeCount;
+                    $scope.isLoadingKnowledge = false;
+                }
+
+                if(loadNewsEvents) {
+                    angular.forEach(response.data.newseventList, function (item) {
+                        angular.forEach($scope.sanitizeFields, function (fieldName) {
+                            item[fieldName] = $sce.trustAsHtml(item[fieldName]);
+                        });
+                    });
+
+                    if ($scope.newseventPageNum > 0) {
+                        $scope.newseventList = $scope.newseventList.concat(response.data.newseventList);
+                    } else {
+                        $scope.newseventList = response.data.newseventList;
+                    }
+                    $scope.newseventCount = response.data.newseventCount;
+                    $scope.isLoadingNewsEvents = false;
+                }
+
+                History.replaceState(buildState(),document.title,$scope.queryString);
+                $scope.searchComplete = true;
+                $scope.isInitialSearch = false;
+            }, 0, true);
+        }).error(function (data, status, headers, config) {
+
+        });
+    };
+
+    $scope.SearchAllProfessionals = function (numLevels) {
+        if(!numLevels)
+            numLevels = 1;
+        for(var i = 0; i<numLevels;i++){
+            $scope.professionalLevels += 1;
+            if($scope.allLevels.length > 0){
+                $scope.levelsVisible.push($scope.allLevels[0]);
+                $scope.allLevels.splice(0, 1);
+            }
+        }
+        $scope.queryString = queryStringService.updateQueryString('showAllProfessionals',$scope.professionalLevels,$scope.queryString);
+        History.replaceState(buildState(),document.title,$scope.queryString);
+    };
+    $scope.IsProfessionalVisible = function(level) {
+        return $scope.levelsVisible.indexOf(level) > -1;
+    };
+    $scope.loadMoreKnowledge = function () {
+        $scope.knowledgePageNum++;
+        $scope.Search(true, false);
+    };
+
+    $scope.loadMoreNewsevent = function () {
+        $scope.newseventPageNum++;
+        $scope.Search(false, true);
+    };
+
+    function BuildQueryString() {
+        $scope.queryString = '';
+        $scope.queryString = queryStringService.addQueryString('serviceId', $scope.serviceId, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('loadAllByPageSize', $scope.isInitialSearch, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('knowledgePageSize', $scope.knowledgePageSize, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('knowledgePageNum', $scope.knowledgePageNum, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('newseventPageSize', $scope.newseventPageSize, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('newseventPageNum', $scope.newseventPageNum, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('showAllProfessionals', $scope.showAllProfessionals, $scope.queryString);
+    };
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }
+
+    $scope.init();
+});
+
+app.controller("ServicesSearch", function ($scope, $http, $sce, $log, $element, $attrs, $window, $timeout, queryStringService, filterService) {
+    $scope.keyword = '';
+    $scope.pageSize = 10;
+    $scope.count = 0;
+    $scope.pageNum = 0;    
+    $scope.list = [];
+    $scope.filters = filterService.get();
+    $scope.isLoading = false;
+    $scope.isInitialSearch = true;    
+    $scope.searchComplete = false;
+    var History = window.History;
+
+    $scope.hasMore = function() {
+        return ((parseInt($scope.pageNum) + 1) * $scope.pageSize) < $scope.count || $scope.isLoading;
+    };
+
+    function StringToBoolean(item) {
+        if (item === undefined)
+            return false;
+        switch (item.toLowerCase()) {
+            case "true": case "yes": case "1": return true;
+            case "false": case "no": case "0": case null: return false;
+            default: false;
+        }
+    };
+
+    $scope.init = function () {
+        $scope.pageSize = parseInt($element.attr('data-load-more-result-count'));        
+        $scope.filters = filterService.get();
+        checkForFilters('keyword');                
+        checkForFilters('pageNum');   
+        if(!IsNullOrEmpty($scope.keyword) || $scope.filters.length > 0) {
+            $scope.Search();
+        }
+    };
+
+    function checkForFilters(filterName) {
+        var arr = queryStringService.getParametersByName(filterName);
+        if(filterName == 'keyword' && arr.length > 0) {
+            $scope.isKeywordSearch = true;
+            $scope.keyword = decodeURIComponent(arr[0]);
+        }
+        if(filterName == 'pageNum' && arr.length > 0) {
+            $scope.pageNum = arr[0];   
+        }   
+    };
+
+    $scope.clearFilters = function(doSearch) {           
+        $scope.resetAll();
+    };
+
+    $scope.removeFilter = function (filter,doSearch) {             
+        $scope.resetAll();     
+    };
+
+    $scope.resetAll = function() {
+        $scope.filters = [];
+        filterService.clear();
+        $scope.searchComplete = false;        
+        $scope.keyword = "";
+        $scope.pageNum = 0;
+        $scope.count = 0;     
+        History.replaceState(null, document.title, '?');   
+    };
+
+    function GetNameForValue(filterValue) {
+        var value = [];
+
+        $("li.link[data-id-value=" + filterValue + "]").map(function () {
+            value.push($(this).data('titleValue'))
+        })
+
+        if(value.length > 0)
+            return  value[0]
+        else
+            return "";
+    }
+
+    $scope.Search = function () {
+        $scope.isLoading = true;
+        BuildQueryString();
+
+        $http.get("/webapi/ServicesApi/Search/" + $scope.queryString).success(function (response) {
+            $timeout(function () {
+                angular.forEach(response.data.list, function (item) {
+                    angular.forEach($scope.sanitizeFields, function (fieldName) {
+                        item[fieldName] = $sce.trustAsHtml(item[fieldName]);
+                    });
+                });
+
+                if ($scope.pageNum > 0) {
+                    $scope.list = $scope.list.concat(response.data.list);
+                } else {
+                    $scope.list = response.data.list;
+                }
+
+                $scope.count = response.data.count;
+                $scope.searchComplete = true;
+                $scope.isInitialSearch = false;
+                $scope.isLoading = false;
+                $scope.filters = filterService.get();
+            }, 0, true);
+        }).error(function (data, status, headers, config) {
+
+        });
+
+    };
+
+    $scope.loadMore = function () {
+        $scope.pageNum++;
+        $scope.Search();
+    };
+
+    function BuildQueryString() {
+        $scope.queryString = "";
+        $scope.queryString = queryStringService.addQueryString('pageSize', $scope.pageSize, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('pageNum', $scope.pageNum, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('loadAllByPageSize', $scope.isInitialSearch, $scope.queryString);
+
+        //Add Keyword for filters if it has value or else remove filter if exist
+        if (!IsNullOrEmpty($scope.keyword)) {
+            var filterKeyword = { text: $scope.keyword, value: encodeURIComponent($scope.keyword), queryName: 'keyword' };
+            filterService.update(filterKeyword);
+        } else {
+            filterService.removeByQueryName('keyword');
+        }
+
+        //Add all filters for query string.
+        angular.forEach(filterService.get(), function (filteritem) {
+            if (!IsNullOrEmpty(filteritem.value)) {
+                $scope.queryString = queryStringService.addQueryString(filteritem.queryName, filteritem.value, $scope.queryString);
+            }
+        });
+
+        var updatedQueryString = queryStringService.removeQueryString('pageSize', $scope.pageSize, $scope.queryString);
+        var updatedQueryString = queryStringService.removeQueryString('loadAllByPageSize', $scope.isInitialSearch, updatedQueryString);
+
+        if ($scope.pageNum <= 0) {
+            updatedQueryString = queryStringService.removeQueryString('pageNum', $scope.pageNum, updatedQueryString);
+        }
+
+        History.replaceState(null, document.title, updatedQueryString.replace('?&', '?'));
+    };
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }
+
+    $scope.init();
+});
+app.controller("SiteSearch", function ($scope, $rootScope, $http, $element, $attrs, $window, $location, $sce, filterService, queryStringService) {
+    var History = window.History;
+    $scope.pageNum = 0;
+    $scope.placeholderQuery = '';
+    $scope.filterSelected = "all";
+    $scope.showViewMore = false;
+    $scope.searchComplete = false;
+    $scope.totalResults = 0;
+    $scope.searchResults = [];
+    $scope.query = '';
+
+    $scope.init = function () {
+        var pageSize = $element.attr('data-page-size');
+        $scope.pageSize = (pageSize > 10) ? 10 : pageSize;
+
+        if (window.location.search) {
+            //get keyword from query string
+            var keywordQuery = queryStringService.getParametersByName('q');
+            console.log(keywordQuery);
+            if (keywordQuery.length > 0) {
+                $scope.query = decodeURIComponent(keywordQuery[0]);
+            }
+            $scope.inputQuery = $scope.query;
+
+            //get section from query string
+            var sectionQuery = queryStringService.getParametersByName('section');
+            if (sectionQuery.length > 0) {
+                $scope.filterSelected = decodeURIComponent(sectionQuery[0]);
+            }
+
+            if ($scope.query) {
+                doSearch();
+            }
+        }
+    };
+
+    $scope.clearInputQuery = function () {
+        $scope.inputQuery = '';
+    };
+
+    function doSearch() {
+        $('.no-results').hide();
+        $scope.filters = filterService.get();
+        $scope.inputQuery = decodeURIComponent($scope.query);
+        $('#search-results').empty();
+
+        var apiParameters = {
+            q: $scope.query,
+            section: $scope.filterSelected,
+            num: $scope.pageSize,
+            start: $scope.pageNum + 1
+        };
+
+        if (apiParameters.q != '') {
+            var url = "/webapi/SiteSearchApi/search" +
+                "?q=" + encodeURIComponent(apiParameters.q) +
+                "&section=" + encodeURIComponent(apiParameters.section) +
+                "&start=" + apiParameters.start;
+
+            $http.get(url)
+                .then(function (response) {
+                    $scope.searchComplete = true;
+                    $scope.totalResults = parseInt(response.data.resultscount);
+
+                    if ((($scope.pageNum + 1) * $scope.pageSize) < $scope.totalResults) {
+                        $scope.showViewMore = true;
+                    } else {
+                        $scope.showViewMore = false;
+                    }
+
+                    $scope.searchResults = $scope.searchResults.concat(response.data.results.items);
+                });
+
+            if ($scope.query)
+                History.replaceState(null, document.title, queryStringService.updateQueryString('q', encodeURIComponent($scope.query)));
+
+            if ($scope.filterSelected)
+                History.replaceState(null, document.title, queryStringService.updateQueryString('section', $scope.filterSelected));
+
+            $scope.pageNum++;
+        }
+    }
+
+    $scope.search = function () {
+        $scope.filterSelected = "all";
+        filterService.clear();
+        $scope.searchComplete = false;
+        $scope.pageNum = 0;
+        $scope.totalResults = 0;
+        $scope.searchResults = [];
+        $scope.query = $scope.inputQuery;
+        $scope.showViewMore = false;
+        angular.element('#result-container').empty();
+        doSearch();
+    };
+
+    //logic to clear all filters and add fitler
+    $scope.clearAndAddFilter = function (filterText, filterValue, filterQueryName, filterLabel) {
+        $scope.filterSelected = filterText;
+        var filter = {
+            text: filterText,
+            value: filterValue,
+            queryName: filterQueryName
+        };
+        filterService.clear();
+        filterService.add(filter);
+        $scope.pageNum = 0;
+        $scope.searchResults = [];
+        $scope.showViewMore = false;
+        angular.element('#result-container').empty();
+        doSearch();
+    };
+
+    //logic for clear filter
+    $scope.clearFilters = function () {
+        $scope.filterSelected = "all";
+        filterService.clear();
+        $scope.pageNum = 0;
+        $scope.searchResults = [];
+        $scope.showViewMore = false;
+        angular.element('#result-container').empty();
+        doSearch();
+    };
+
+    $scope.addPage = function () {
+        doSearch();
+    };
+
+    $scope.goto = function (path) {
+        location.assign(path);
+    };
+
+    $scope.init();
+});
+app.controller("SubscribeForm", function ($scope, $http, $sce, $log, $element, $attrs, $window, $timeout, queryStringService, filterService) {
+    $scope.firstName = "";
+    $scope.lastName = "";
+    $scope.email = "";
+    $scope.company = "";
+    $scope.responseMsg = '';
+    $scope.successMsg = '';
+
+    $scope.serviceList = [];       
+    $scope.isLoading = false;
+    $scope.isComplete = false;    
+    $scope.isError = false;
+    $scope.modalNode = $('.modal');    
+    var History = window.History;
+
+    $scope.init = function () {
+        $scope.resetForm();        
+    };
+
+    $scope.sendMail = function () {
+		$scope.isLoading = true;
+        BuildQueryString();                
+
+        $element.find('.modal-subscribe').animate({scrollTop: 0}, 600, function() {            
+            $http.get("/webapi/ComponentApi/VerifyForm/"+ $scope.queryString).success(function (response) {
+                $scope.responseMsg = $sce.trustAsHtml(response.data.message);                
+                $scope.success = response.data.success;                                        
+                grecaptcha.reset(recaptcha1);
+                if($scope.success) {                        
+                    $scope.successMsg = $scope.responseMsg;
+                    $http.post("/webapi/ComponentApi/SendForm/" + $scope.queryString).success(function (response) {
+                        $scope.isError = false;
+                        $scope.isComplete = true;                
+                        $scope.isLoading = false;
+                        $scope.resetForm();                        
+                        //$scope.modalNode.removeClass('modal-visible');
+                        $scope.responseMsg = $scope.successMsg;
+
+                    }).error(function (data, status, headers, config) {
+                        console.log('error: +' + status);
+                    });                                    
+                } else {
+                    $scope.isError = true;                
+                    $scope.isLoading = false;
+                }        
+            }).error(function (data, status, headers, config) {
+                console.log(data);
+                console.log(status);
+                $scope.responseMsg = 'Error during submission please try again later';
+                $scope.isError = true;                
+                $scope.isLoading = false;
+                $scope.resetForm();
+                $scope.modalNode.removeClass('modal-visible');
+            });
+            $scope.hasSubmitted = true;
+            return false; 
+        });        
+    };
+
+    $scope.updateServiceList = function (serviceId, serviceName) {        
+    	if(ListHasValue($scope.serviceList, serviceId)) {
+			$scope.serviceList = $.grep($scope.serviceList, function(e) { return e.serviceId != serviceId; });				            
+		} else {
+			$scope.serviceList.push({ serviceId: serviceId, serviceName: serviceName });
+		}    	
+    };    
+
+    $scope.resetForm = function () {
+	    $scope.firstName = "";
+	    $scope.lastName = "";
+	    $scope.email = "";
+	    $scope.company = "";
+	    $scope.serviceList = [];  
+        $scope.responseMsg = '';
+        $scope.modalNode.find(':checkbox').attr('checked', false);
+    };
+
+    function BuildQueryString(pageSize, pageNum) {        
+        $scope.queryString = '';
+        var updatedQueryString = '';
+
+        //Add all selected services
+        angular.forEach($scope.serviceList, function (serviceitem) {
+            if (!IsNullOrEmpty(serviceitem.serviceName)) {
+                $scope.queryString = queryStringService.addQueryString('services', serviceitem.serviceName, $scope.queryString);
+            }
+        });        
+
+        $scope.queryString = queryStringService.addQueryString('firstName', $scope.firstName, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('lastName', $scope.lastName, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('email', $scope.email, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('company', $scope.company, $scope.queryString);        
+        $scope.queryString = queryStringService.addQueryString('captchaResponse', grecaptcha.getResponse(recaptcha1), $scope.queryString);        
+        
+        //Add all selected services
+        angular.forEach($scope.serviceList, function (serviceitem) {
+            if (!IsNullOrEmpty(serviceitem.serviceName)) {
+                $scope.queryString = queryStringService.addQueryString('services', serviceitem.serviceName, $scope.queryString);
+            }
+        });
+
+        updatedQueryString = queryStringService.removeQueryString('firstName', $scope.firstName, $scope.queryString);
+        updatedQueryString = queryStringService.removeQueryString('lastName', $scope.lastName, updatedQueryString);
+        updatedQueryString = queryStringService.removeQueryString('email', $scope.email, updatedQueryString);
+        updatedQueryString = queryStringService.removeQueryString('company', $scope.company, updatedQueryString);
+        updatedQueryString = queryStringService.addQueryString('captchaResponse', grecaptcha.getResponse(recaptcha1), updatedQueryString);        
+
+        History.replaceState(null, document.title, updatedQueryString.replace('?&', '?'));
+    }
+
+    function ListHasValue(list, val) {
+		for(var i = 0; i < list.length; i++) {
+			if (list[i].serviceId == val) {
+				return true;
+			}
+		}
+		return false;
+    }
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }    
+
+    $scope.init();
+});
+app.controller("SubscribeModal", function ($scope, $http, $sce, $log, $element, $attrs, $window, $timeout, queryStringService, filterService) {
+    $scope.firstName = "";
+    $scope.lastName = "";
+    $scope.email = "";
+    $scope.company = "";
+    $scope.responseMsg = '';
+    $scope.successMsg = '';
+
+    $scope.serviceList = [];       
+    $scope.isLoading = false;
+    $scope.isComplete = false;    
+    $scope.isError = false;
+    $scope.modalNode = $('.modal');    
+    var History = window.History;
+
+    $scope.init = function () {
+        $scope.resetForm();        
+    };
+
+    $scope.sendMail = function () {
+		$scope.isLoading = true;
+        BuildQueryString();                
+
+        $element.find('.modal-content').animate({scrollTop: 0}, 600, function() {            
+            $http.get("/webapi/ComponentApi/VerifyForm/"+ $scope.queryString).success(function (response) {
+                $scope.responseMsg = $sce.trustAsHtml(response.data.message);                
+                $scope.success = response.data.success;                                        
+                grecaptcha.reset(recaptcha1);
+                if($scope.success) {                        
+                    $scope.successMsg = $scope.responseMsg;
+                    $http.post("/webapi/ComponentApi/SendForm/" + $scope.queryString).success(function (response) {
+                        $scope.isError = false;
+                        $scope.isComplete = true;                
+                        $scope.isLoading = false;
+                        $scope.resetForm();                        
+                        //$scope.modalNode.removeClass('modal-visible');
+                        $scope.responseMsg = $scope.successMsg;
+
+                    }).error(function (data, status, headers, config) {
+                        console.log('error: +' + status);
+                    });                                    
+                } else {
+                    $scope.isError = true;                
+                    $scope.isLoading = false;
+                }        
+            }).error(function (data, status, headers, config) {
+                console.log(data);
+                console.log(status);
+                $scope.responseMsg = 'Error during submission please try again later';
+                $scope.isError = true;                
+                $scope.isLoading = false;
+                $scope.resetForm();
+                $scope.modalNode.removeClass('modal-visible');
+            });
+            $scope.hasSubmitted = true;
+            return false; 
+        });        
+    };
+
+    $scope.updateServiceList = function (serviceId, serviceName) {        
+    	if(ListHasValue($scope.serviceList, serviceId)) {
+			$scope.serviceList = $.grep($scope.serviceList, function(e) { return e.serviceId != serviceId; });				            
+		} else {
+			$scope.serviceList.push({ serviceId: serviceId, serviceName: serviceName });
+		}    	
+    };    
+
+    $scope.resetForm = function () {
+	    $scope.firstName = "";
+	    $scope.lastName = "";
+	    $scope.email = "";
+	    $scope.company = "";
+	    $scope.serviceList = [];  
+        $scope.responseMsg = '';
+        $scope.modalNode.find(':checkbox').attr('checked', false);
+    };
+
+    function BuildQueryString(pageSize, pageNum) {        
+        $scope.queryString = '';
+        var updatedQueryString = '';
+
+        //Add all selected services
+        angular.forEach($scope.serviceList, function (serviceitem) {
+            if (!IsNullOrEmpty(serviceitem.serviceName)) {
+                $scope.queryString = queryStringService.addQueryString('services', serviceitem.serviceName, $scope.queryString);
+            }
+        });        
+
+        $scope.queryString = queryStringService.addQueryString('firstName', $scope.firstName, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('lastName', $scope.lastName, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('email', $scope.email, $scope.queryString);
+        $scope.queryString = queryStringService.addQueryString('company', $scope.company, $scope.queryString);        
+        $scope.queryString = queryStringService.addQueryString('captchaResponse', grecaptcha.getResponse(recaptcha1), $scope.queryString);        
+        
+        //Add all selected services
+        angular.forEach($scope.serviceList, function (serviceitem) {
+            if (!IsNullOrEmpty(serviceitem.serviceName)) {
+                $scope.queryString = queryStringService.addQueryString('services', serviceitem.serviceName, $scope.queryString);
+            }
+        });
+
+        updatedQueryString = queryStringService.removeQueryString('firstName', $scope.firstName, $scope.queryString);
+        updatedQueryString = queryStringService.removeQueryString('lastName', $scope.lastName, updatedQueryString);
+        updatedQueryString = queryStringService.removeQueryString('email', $scope.email, updatedQueryString);
+        updatedQueryString = queryStringService.removeQueryString('company', $scope.company, updatedQueryString);
+        updatedQueryString = queryStringService.addQueryString('captchaResponse', grecaptcha.getResponse(recaptcha1), updatedQueryString);        
+
+        History.replaceState(null, document.title, updatedQueryString.replace('?&', '?'));
+    }
+
+    function ListHasValue(list, val) {
+		for(var i = 0; i < list.length; i++) {
+			if (list[i].serviceId == val) {
+				return true;
+			}
+		}
+		return false;
+    }
+
+    function IsNullOrEmpty(value) {
+        if (value != undefined && value !== null && value != "") {
+            return false;
+        }
+        return true;
+    }    
+
+    $scope.init();
+});
+app.factory("filterService", function () {
+    //This is a simple service to share filters across controllers
+    var filters = [];
+    return {
+        /**
+			* @Retrieves the filters
+			* @returns list of filters
+			*/
+        get: function () {
+            return filters;
+        },
+
+        /**
+			* @Add a filter - will not allow duplicate filters
+			* @returns list of filters
+			*/
+        add: function (filter) {
+            if (!this.filterExists(filter))
+                filters.push(filter);
+        },
+        remove: function (filter) {
+            var ndx = -1;
+			for (var i = 0; i < filters.length; i++) {
+				if (filters[i].queryName == filter.queryName)
+					ndx=i;
+			}
+            if(ndx > -1) {
+                filters.splice(ndx, 1);
+            }
+        },
+        removeByQueryName: function (filterQueryName) {
+            var ndx = -1;
+            for (var i = 0; i < filters.length; i++) {
+                if (filters[i].queryName == filterQueryName)
+                    ndx=i;
+            }
+            if(ndx > -1) {
+                filters.splice(ndx, 1);
+            }
+        },
+        update: function (filter) {
+            var ndx = -1;
+			for (var i = 0; i < filters.length; i++) {
+				if (filters[i].queryName == filter.queryName)
+					ndx=i;
+			}
+            if(ndx > -1) {
+                filters.splice(ndx, 1);
+            }
+            this.add(filter);
+        },
+        filterExists: function (filter) {
+            for (var i = 0; i < filters.length; i++) {
+                if (filters[i].value == filter.value)
+                    return true;
+            }
+            return false;
+        },
+		filterQueryNameExists: function (filter) {
+			for (var i = 0; i < filters.length; i++) {
+				if (filters[i].queryName == filter.queryName)
+					return true;
+			}
+			return false;
+		},
+        filterByQueryNameExists: function (filterQueryName) {
+            for (var i = 0; i < filters.length; i++) {
+                if (filters[i].queryName == filterQueryName)
+                    return true;
+            }
+            return false;
+        },
+        clear: function () {
+            filters = [];
+        }
+    };
+});
+
+app.factory("historyStateService", function ($window) {
+    return {
+        /**
+		 * Checks to see if previous state matches current URL, and if previous state has data stored
+		 * @returns true if state exists, false otherwise
+		 */
+        hasState: function () {
+            if(window.History.getState().url === window.location.href && !_.isEmpty(window.History.getState().data))
+                return true;
+            return false;
+        },
+        /**
+		 * Loads the data onto scope object from existing state
+		 * @returns string
+		 */
+        loadState: function ($scope) {
+            var stateObj = window.History.getState().data;
+            for(var key in stateObj){
+                $scope[key] = stateObj[key];
+            }
+        }
+    };
+});
+
+app.factory("queryStringService", function ($window) {
+    return {
+        /**
+		 * @Converts a JSON object to a querystring
+		 * @returns string
+		 */
+        toQueryString: function (jsonObject) {
+            var result = '';
+            for (key in jsonObject) {
+                result += key + '=' + jsonObject[key] + '&';
+            }
+            return result.slice(0, result.length - 1);
+        },
+        /**
+		 * @Converts a querystring to a filter array
+		 * @returns string
+		 */
+        toKeyValueArray: function (queryString) {
+            var sets = queryString.replace('?', '').split('&');
+            var keyValueArray = [];
+            for (set in sets) {
+                var keyVals = set.split('=');
+                keyValueArray.push({ name: keyVals[0], value: keyVals[1] });
+            }
+            return keyValueArray;
+        },
+        /**
+		 * @Converts Returns a query string parameter value by name
+		 * @returns string
+		 */
+        getParameterByName: function (name) {
+            name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+            var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+					results = regex.exec(location.search);
+            return results == null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+        },
+        /**
+		 * @Converts Returns a query string parameter value by name
+		 * @returns string
+		 */
+        getParametersByName: function (name) {
+            var parts = [];
+            var hashArr = [];
+            if(location.hash != '') {
+                hashArr = location.hash.replace('#', '').substring(location.hash.indexOf('?')).replace('?', '').split('&');
+            }
+            else {
+                parts = location.search.replace('?', '').split('&');
+            }
+
+            parts = parts.concat(hashArr);
+            var arr = [];
+            for (var i = 0; i < parts.length; i++) {
+                var part = parts[i].split('=');
+                if (part[0] == name)
+                    arr.push(part[1]);
+            }
+            return arr;
+        },
+
+		getParametersValueByName: function (name, queryString) {
+			if (!queryString && queryString != "") {
+				queryString = $window.location.search;
+			}
+			name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+			var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+				results = regex.exec(queryString);
+			return results == null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+		},
+
+
+        /**
+		 * @Converts Removes a query string parameter
+		 * @returns string
+		 */
+        removeQueryString: function (key, value, queryString) {
+            if (!queryString && queryString != "") queryString = decodeURI($window.location.search);
+            return queryString.replace('&' + key + "=" + value, "").replace(key + "=" + value, "");
+        },
+        /**
+		 * @Converts Update query string parameter
+		 * @returns string
+		 */
+        updateQueryString: function (key, value, queryString, oldvalue) {
+			
+            if (!queryString && queryString != "") {
+                queryString = decodeURI($window.location.search);
+            }
+            if (oldvalue != undefined) {
+                var re = new RegExp("([?&])" + key + "=" + oldvalue + "?(&|#|$)(.*)", "gi");
+            }
+            else {
+                var re = new RegExp("([?&])" + key + "=.*?(&|#|$)(.*)", "gi");
+            }
+            if (re.test(queryString)) {
+                //update query string value
+                if (typeof value !== 'undefined' && value !== null)
+                    return queryString.replace(re, '$1' + key + "=" + value + '$2$3');
+                else {
+                    var hash = queryString.split('#');
+                    queryString = hash[0].replace(re, '$1$3').replace(/(&|\?)$/, '');
+                    if (typeof hash[1] !== 'undefined' && hash[1] !== null)
+                        queryString += '#' + hash[1];
+                    return queryString;
+                }
+            }
+            else {
+                //query string doesn't exist, add querystring
+                return this.addQueryString(key, value, queryString);
+            }
+        },
+
+        addQueryString: function (key, value, queryString) {
+            if (!queryString && queryString != "")
+                queryString = decodeURI($window.location.search);
+            if (typeof value !== 'undefined' && value !== null) {
+                if (queryString.indexOf(key + '=' + value) > -1)//querystring already exists - don't add
+                    return queryString;
+                var separator = queryString.indexOf('?') !== -1 ? '&' : '?',
+						hash = queryString.split('#');
+                if (value instanceof Array) {
+                    if (value.length > 0) {
+                        queryString = hash[0] + separator + key + '=' + value[0];
+                        for (i = 1; i < value.length; i++) {
+                            queryString = queryString + separator + key + '=' + value[i];
+                        }
+                    } else {
+                        queryString = hash[0] + separator + key + '=';
+                    }
+                } else {
+                    if (key === "pageNum" && queryString.indexOf(key) > -1) {
+                        return queryString;
+                    } else {
+                        queryString = hash[0] + separator + key + '=' + value;
+                    }
+                }
+                if (typeof hash[1] !== 'undefined' && hash[1] !== null)
+                    queryString += '#' + hash[1];
+                return queryString;
+            }
+            else
+                return queryString;
+        }
+    };
+});
+
+app.directive('addHeaderPadding', function ($window) {
+    return function (scope, elem, attrs) {   	        
+        var siteNav = $('.site-nav'),
+            footer = $('.site-footer ');
+
+
+		updateHeaderPadding();
+
+		angular.element($window).bind('resize', function(){
+			updateHeaderPadding();	
+		});
+        
+        function updateHeaderPadding () {
+            if ($(window).width() <= 1080) {
+                siteNav.css('padding-right', '4px');
+                footer.css('padding-right', '4px');
+            } else if ($(window).width() >= 1450 && $(window).width() <= 1620) {
+                var x = 1550 - $(window).width();
+                siteNav.css('padding-right', (x) + 'px');
+                footer.css('padding-right', (x) + 'px');
+            } else if($(window).width() > 1550 && $(window).width() <= 1620) {
+                siteNav.css('padding-right', '33px');
+                footer.css('padding-right', '33px');
+            } else if ($(window).width() >= 1620) {
+                siteNav.css('padding-right', '4px');
+                footer.css('padding-right', '4px');
+            } else {
+                siteNav.css('padding-right', '99px');
+                footer.css('padding-right', '99px');
+            }
+        }
+    }
+});
+app.directive('addThisCustom', function () {
+    return {
+        restrict: 'A',
+        link: function (scope, elem, attrs) {
+            var shareLink = $('.sub-nav-link.share-link');            	
+
+            shareLink.on('click', function() {
+                if(shareLink.hasClass('open')) {
+                    shareLink.removeClass('open');                            
+                } else {
+                    shareLink.addClass('open');                    
+                }   				
+        	});            
+        }
+    };
+});
+app.directive('closeDropDown', function () {
+    return function () {
+        $(window).on('click', function () {        	
+        	findActiveDropDowns();
+        });
+
+        $('.drop-down-list').on('click', function (e) {
+        	e.stopPropagation();
+        });
+
+        function findActiveDropDowns() {
+	        var openDropdowns = $('.drop-down-list.active');
+	        if(openDropdowns.length > 0) {
+	            for(var i = 0; i < openDropdowns.length; i++) {
+	                closeActiveDropDown($(openDropdowns[i]));    
+	            }       
+	        }           
+	    }
+
+	    function closeActiveDropDown(dropDown) {        
+	        var links = dropDown.find('.links')
+	        links.velocity('slideUp', {
+	            complete: function() { dropDown.removeClass('active'); }
+	        });
+	    }
+    };
+});
+app.directive('linkTarget', function() {
+    return {
+        restrict: 'A',
+        link: function(scope, elem, attrs) {
+            attrs.$observe('href', function() {
+                var a = elem[0];
+                if (location.host.indexOf(a.hostname) !== 0)
+                    a.target = '_blank';
+            });
+        }
+    }
+});
+ 
+app.directive('ab', function() {
+    return {
+        restrict: 'E',
+        link: function(scope, elem, attrs) {
+            attrs.$observe('href', function (hrefVal) {
+                var a = elem[0];
+                if (hrefVal != undefined && hrefVal != null && hrefVal != "" && hrefVal.toLowerCase().indexOf('mailto:') > -1) {
+                    var name = hrefVal.substring(hrefVal.toLowerCase().indexOf('mailto:')+7, hrefVal.toLowerCase().indexOf('@'));
+					var domain = hrefVal.substring(hrefVal.toLowerCase().indexOf('@')+1);
+					var domainsmall = domain;
+					if(hrefVal.toLowerCase().indexOf('?') > 0 )
+                    	domainsmall = hrefVal.substring(hrefVal.toLowerCase().indexOf('@')+1,hrefVal.toLowerCase().indexOf('?'));
+                    a.href = "javascript:window.open('/EmailDisclaimer?emailprefix=" + name + "&emaildomain=" + domain +
+                             "','disclaimer','height=540,width=640,location=no,menubar=no,resizable=no,scrollbars=no,toolbar=no,status=no,left=100,top=100');void(0);";
+                    if (a.innerHTML != undefined && a.innerHTML != null && a.innerHTML != "" && a.innerHTML.toLowerCase().indexOf('@') > -1) {
+                        a.innerHTML = name + "<span>@</span>" + domainsmall;
+                    }
+                }
+				else if(hrefVal != undefined && hrefVal != null && hrefVal != "" && hrefVal.toLowerCase().indexOf('javascript') <= -1) {
+					if (location.host.indexOf(a.hostname) !== 0)
+						a.target = '_blank';
+				}
+            });
+        }
+    }
+});
+ 
+
+app.directive('moveSecondaryNav', function () {
+    return function (scope, element, attrs) {        
+        $('.sub-nav').before($('.secondary-nav'));        
+    };
+});
+/**
+ * Created by u0136092 on 5/11/2015.
+ */
+app.directive('ngClearInput', function () {
+    return function (scope, element) {
+        element.focus(function() {
+            var node = $(this);
+            node.val('');
+
+        })
+    };
+});
+
+app.directive('ngEnter', function () {
+    return function (scope, element, attrs) {
+        element.bind("keydown keypress", function (event) {
+            if (event.which === 13) {
+                scope.$apply(function () {
+                    scope.$eval(attrs.ngEnter);
+                });
+
+                event.preventDefault();
+            }
+        });
+    };
+});
+
+app.directive('placeholder', function($timeout, $log) { // @TODO move this to directives folder
+	if (!/MSIE [89]/.test(navigator.userAgent)) {
+		return {};
+	}
+	return {
+		link: function(scope, elm, attrs) {
+			$log.debug('applying `placeholder` attribute API filler');
+
+			if (attrs.type === 'password') {
+				return;
+			}
+			$timeout(function() {
+				elm.val(attrs.placeholder).focus(function() {
+					var node = $(this);
+
+					if (node.val() === node.attr('placeholder')) {
+						node.val('');
+					}
+				}).blur(function() {
+					var node = $(this);
+					if (node.val() === '') {
+						node.val(node.attr('placeholder'));
+					}
+				});
+			});
+		}
+	};
+});
+
+app.directive('positionRecaptcha', function ($window) {
+    return function (scope, elem, attrs) {   	        
+
+    }
+});
+app.directive('triggerModal', function () {
+    return {
+        restrict: 'A',
+        link: function (scope, elem, attrs) {
+            var modalNode = $('.modal', elem),
+                modalTrigger = $('.modal-trigger', elem),
+                modalClose = $('.modal-close', modalNode);
+
+            modalTrigger.on('click', function() {
+                modalNode.addClass('modal-visible');                
+            });
+
+            modalClose.on('click', function() {
+                modalNode.removeClass('modal-visible');
+            });
+        }
+    };
+});

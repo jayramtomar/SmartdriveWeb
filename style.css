@@ -1,0 +1,31 @@
+.bg{
+    background: url('bi.jpg') no-repeat;
+    width: 100%;
+    height: 120vh;
+	background-position: center;
+	background-size: cover;
+}
+.form-container{
+    border: 1px solid rgb(68, 157, 68);
+    padding: 30px 60px;
+    margin-top: 90px;
+    box-shadow: -1px 4px 26px 11px aliceblue;
+    background-color: aliceblue;
+}
+.login-container{
+    border: 1px solid black;;
+    padding: 30px 40px;
+    margin-top: 210px;
+     box-shadow: -1px 4px 26px 11px black;
+    background-color:
+}
+.bgi{
+     background: url('bi.jpg') no-repeat;
+    width: 100%;
+    height: 100vh;
+    	background-position: center;
+	background-size: cover;
+}
+.header{
+    color:navajowhite;
+}
